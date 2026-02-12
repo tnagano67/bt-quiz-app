@@ -55,8 +55,8 @@ export default function QuizQuestion({
                   : isWrongSelected
                     ? "border-red-400 bg-red-100 text-red-800"
                     : isSelected
-                      ? "border-blue-400 bg-blue-50"
-                      : "border-gray-200"
+                      ? "border-blue-400 bg-blue-50 text-gray-900"
+                      : "border-gray-200 text-gray-900"
               }`}
             >
               <input
