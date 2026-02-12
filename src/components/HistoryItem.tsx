@@ -18,8 +18,8 @@ export default function HistoryItem({
   const retryParam = questionIds.join(",");
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
-      <div className="flex items-center gap-4">
+    <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
         <span className="text-sm text-gray-500">{date}</span>
         <span className="text-sm font-medium text-gray-700">{grade}</span>
         <span className="text-lg font-bold text-gray-900">{score}%</span>
@@ -35,7 +35,7 @@ export default function HistoryItem({
       </div>
       <Link
         href={`/student/quiz?retry=${retryParam}`}
-        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+        className="self-end rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 sm:self-auto"
       >
         再受験
       </Link>

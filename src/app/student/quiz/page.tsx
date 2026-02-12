@@ -48,6 +48,7 @@ function QuizContent() {
   const [advancement, setAdvancement] =
     useState<GradeAdvancementResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const loadQuiz = useCallback(async () => {
     try {
@@ -184,18 +185,25 @@ function QuizContent() {
 
     // サーバー側で保存（再受験時は保存しない）
     if (!isRetry) {
-      const result = await saveQuizResult({
-        studentId: student.id,
-        grade: student.current_grade,
-        score: calcScore,
-        passed: calcPassed,
-        questionIds: questions.map((q) => q.question_id),
-        studentAnswers,
-        correctAnswers,
-      });
+      try {
+        const result = await saveQuizResult({
+          studentId: student.id,
+          grade: student.current_grade,
+          score: calcScore,
+          passed: calcPassed,
+          questionIds: questions.map((q) => q.question_id),
+          studentAnswers,
+          correctAnswers,
+        });
 
-      if (result.success && result.advancement) {
-        setAdvancement(result.advancement);
+        if (result.success && result.advancement) {
+          setAdvancement(result.advancement);
+        }
+        if (!result.success) {
+          setSaveError("結果の保存に失敗しました。成績は記録されていません。");
+        }
+      } catch {
+        setSaveError("結果の保存に失敗しました。成績は記録されていません。");
       }
     }
 
@@ -227,11 +235,11 @@ function QuizContent() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-900">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-base font-bold text-gray-900 sm:text-lg">
           {isRetry ? "再受験" : "小テスト"} — {student?.current_grade}
         </h2>
-        <span className="text-sm text-gray-500">
+        <span className="text-xs text-gray-500 sm:text-sm">
           {questions.length}問 / 合格ライン {gradeDef?.pass_score}%
         </span>
       </div>
@@ -264,15 +272,22 @@ function QuizContent() {
       )}
 
       {state === "submitted" && (
-        <QuizResult
-          score={score}
-          passed={passed}
-          totalQuestions={questions.length}
-          correctCount={results?.filter((r) => r.correct).length ?? 0}
-          advancement={advancement}
-          onGoHome={() => router.push("/student")}
-          isRetry={isRetry}
-        />
+        <>
+          {saveError && (
+            <div className="rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+              {saveError}
+            </div>
+          )}
+          <QuizResult
+            score={score}
+            passed={passed}
+            totalQuestions={questions.length}
+            correctCount={results?.filter((r) => r.correct).length ?? 0}
+            advancement={advancement}
+            onGoHome={() => router.push("/student")}
+            isRetry={isRetry}
+          />
+        </>
       )}
     </div>
   );

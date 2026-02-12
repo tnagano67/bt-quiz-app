@@ -62,7 +62,7 @@ export default async function HistoryPage() {
           {student.year}年{student.class}組{student.number}番 {student.name}{" "}
           さん
         </h2>
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
           <div>
             <p className="text-xs text-gray-500">現在のグレード</p>
             <p className="text-lg font-bold text-blue-600">

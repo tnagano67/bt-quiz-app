@@ -24,7 +24,7 @@ export default function StudentInfoCard({
         {student.year}年{student.class}組{student.number}番 {student.name} さん
       </h2>
 
-      <dl className="grid grid-cols-2 gap-3 text-sm">
+      <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-gray-500">現在のグレード</dt>
           <dd className="text-lg font-bold text-blue-600">
@@ -53,7 +53,7 @@ export default function StudentInfoCard({
                 : `あと${remainingDays}日`}
           </dd>
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <dt className="text-gray-500">本日の受験</dt>
           <dd>
             {hasTakenToday ? (
