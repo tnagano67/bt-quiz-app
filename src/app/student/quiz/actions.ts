@@ -32,7 +32,7 @@ export async function saveQuizResult(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
+  if (!user || !user.email) {
     return { success: false, message: "認証エラー" };
   }
 
@@ -41,7 +41,7 @@ export async function saveQuizResult(
     .from("students")
     .select("*")
     .eq("id", input.studentId)
-    .eq("profile_id", user.id)
+    .eq("email", user.email)
     .single();
 
   if (!student) {

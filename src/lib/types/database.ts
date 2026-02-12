@@ -1,13 +1,6 @@
-export type Profile = {
-  id: string;
-  email: string;
-  role: "teacher" | "student";
-  created_at: string;
-};
-
 export type Student = {
   id: string;
-  profile_id: string;
+  email: string;
   year: number;
   class: number;
   number: number;

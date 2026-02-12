@@ -57,7 +57,7 @@ function QuizContent() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) {
+      if (!user || !user.email) {
         router.push("/login");
         return;
       }
@@ -66,7 +66,7 @@ function QuizContent() {
       const { data: studentData } = await supabase
         .from("students")
         .select("*")
-        .eq("profile_id", user.id)
+        .eq("email", user.email)
         .single();
 
       if (!studentData) {

@@ -9,13 +9,13 @@ export default async function HistoryPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user || !user.email) redirect("/login");
 
   // 生徒情報
   const { data: student } = await supabase
     .from("students")
     .select("*")
-    .eq("profile_id", user.id)
+    .eq("email", user.email)
     .single();
 
   if (!student) {

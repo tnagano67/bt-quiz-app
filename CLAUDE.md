@@ -51,7 +51,7 @@ npm run lint     # ESLint 実行
 
 ### 認証
 
-Supabase Auth 経由の Google OAuth。新規ユーザーは `auth.users` への INSERT トリガーで自動的に `student` ロールが付与される。
+Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` を保護し、未認証ユーザーを `/login` にリダイレクト。認証後、`auth.users.email` を `students.email` と直接照合して生徒を特定。
 
 ### 環境変数
 
@@ -69,4 +69,4 @@ Supabase Auth 経由の Google OAuth。新規ユーザーは `auth.users` への
 
 ### データベーステーブル（Supabase）
 
-`profiles`、`students`、`grade_definitions`、`questions`、`quiz_records` — すべて RLS 有効。スキーマの詳細は `PLAN.md` セクション 1-4 を参照。
+`students`、`grade_definitions`、`questions`、`quiz_records` — すべて RLS 有効。`students.email` で Google アカウントと紐付け。スキーマの詳細は `PLAN.md` を参照。
