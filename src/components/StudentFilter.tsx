@@ -55,7 +55,7 @@ export default function StudentFilter({ grades }: Props) {
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
           >
             <option value="">全て</option>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((c) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((c) => (
               <option key={c} value={c}>
                 {c}組
               </option>

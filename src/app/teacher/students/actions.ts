@@ -138,9 +138,9 @@ export async function importStudents(
     if (
       !Number.isInteger(row.class) ||
       row.class < 1 ||
-      row.class > 8
+      row.class > 10
     ) {
-      errors.push(`行${rowNum}: 組は1〜8の整数が必要です`);
+      errors.push(`行${rowNum}: 組は1〜10の整数が必要です`);
       continue;
     }
     if (

@@ -30,8 +30,8 @@ export default function StudentForm() {
       setError("学年は1〜3の整数を入力してください");
       return;
     }
-    if (!Number.isInteger(c) || c < 1 || c > 8) {
-      setError("組は1〜8の整数を入力してください");
+    if (!Number.isInteger(c) || c < 1 || c > 10) {
+      setError("組は1〜10の整数を入力してください");
       return;
     }
     if (!Number.isInteger(n) || n < 1) {
@@ -115,7 +115,7 @@ export default function StudentForm() {
                 required
               >
                 <option value="">選択</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                   <option key={n} value={n}>
                     {n}組
                   </option>
