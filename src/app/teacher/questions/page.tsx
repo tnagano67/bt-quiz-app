@@ -3,11 +3,15 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import QuestionTable from "@/components/QuestionTable";
 import CsvImport from "@/components/CsvImport";
+import Pagination from "@/components/Pagination";
 import type { Question, GradeDefinition } from "@/lib/types/database";
+
+const PAGE_SIZE = 50;
 
 type Props = {
   searchParams: Promise<{
     grade?: string;
+    page?: string;
   }>;
 };
 
@@ -34,25 +38,44 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
     .order("display_order", { ascending: true });
   const allGrades = (gradeData ?? []) as GradeDefinition[];
 
-  // 問題を全件取得
-  const { data: questionData } = await supabase
+  // サーバーサイドフィルタリング付きクエリを構築
+  let query = supabase
     .from("questions")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("question_id", { ascending: true });
-  let questions = (questionData ?? []) as Question[];
 
-  // グレードフィルター
   const selectedGrade = params.grade;
   if (selectedGrade) {
     const gradeDef = allGrades.find((g) => g.grade_name === selectedGrade);
     if (gradeDef) {
-      questions = questions.filter(
-        (q) =>
-          q.question_id >= gradeDef.start_id &&
-          q.question_id <= gradeDef.end_id
-      );
+      query = query
+        .gte("question_id", gradeDef.start_id)
+        .lte("question_id", gradeDef.end_id);
     }
   }
+
+  // ページネーション
+  const currentPage = Math.max(1, Number(params.page) || 1);
+  const from = (currentPage - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+  query = query.range(from, to);
+
+  const { data: questionData, count } = await query;
+  const questions = (questionData ?? []) as Question[];
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  // Pagination に渡す searchParams（page を除く）
+  const paginationParams: Record<string, string> = {};
+  if (selectedGrade) {
+    paginationParams.grade = selectedGrade;
+  }
+
+  // グレードフィルターのリンクにpage=1を含めないようにする
+  const gradeHref = (gradeName?: string) => {
+    if (!gradeName) return "/teacher/questions";
+    return `/teacher/questions?grade=${encodeURIComponent(gradeName)}`;
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -69,7 +92,7 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
       {/* グレードフィルター */}
       <div className="flex flex-wrap gap-2">
         <Link
-          href="/teacher/questions"
+          href={gradeHref()}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
             !selectedGrade
               ? "bg-teal-100 text-teal-700"
@@ -81,7 +104,7 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
         {allGrades.map((g) => (
           <Link
             key={g.id}
-            href={`/teacher/questions?grade=${encodeURIComponent(g.grade_name)}`}
+            href={gradeHref(g.grade_name)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               selectedGrade === g.grade_name
                 ? "bg-teal-100 text-teal-700"
@@ -98,9 +121,16 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
 
       <CsvImport />
 
-      <p className="text-xs text-gray-500">{questions.length}件の問題</p>
+      <p className="text-xs text-gray-500">{totalCount}件の問題</p>
 
       <QuestionTable questions={questions} />
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        basePath="/teacher/questions"
+        searchParams={paginationParams}
+      />
     </div>
   );
 }

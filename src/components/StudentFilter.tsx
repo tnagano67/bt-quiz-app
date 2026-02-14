@@ -19,6 +19,7 @@ export default function StudentFilter({ grades }: Props) {
       } else {
         params.delete(key);
       }
+      params.delete("page");
       router.push(`/teacher/students?${params.toString()}`);
     },
     [router, searchParams]

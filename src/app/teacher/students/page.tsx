@@ -5,11 +5,14 @@ import { getRecentDates } from "@/lib/date-utils";
 import StudentFilter from "@/components/StudentFilter";
 import StudentTable from "@/components/StudentTable";
 import StudentCsvImport from "@/components/StudentCsvImport";
+import Pagination from "@/components/Pagination";
 import type {
   Student,
   GradeDefinition,
   QuizRecord,
 } from "@/lib/types/database";
+
+const PAGE_SIZE = 50;
 
 type Props = {
   searchParams: Promise<{
@@ -18,6 +21,7 @@ type Props = {
     gradeFrom?: string;
     gradeTo?: string;
     name?: string;
+    page?: string;
   }>;
 };
 
@@ -46,66 +50,83 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
   const allGrades = (gradeData ?? []) as GradeDefinition[];
   const gradeNames = allGrades.map((g) => g.grade_name);
 
-  // 全生徒を取得
-  const { data: studentData } = await supabase
+  // サーバーサイドフィルタリング付きクエリを構築
+  let query = supabase
     .from("students")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("year")
     .order("class")
     .order("number");
-  let students = (studentData ?? []) as Student[];
 
-  // フィルタリング
   if (params.year) {
-    students = students.filter((s) => s.year === Number(params.year));
+    query = query.eq("year", Number(params.year));
   }
   if (params.class) {
-    students = students.filter((s) => s.class === Number(params.class));
-  }
-  if (params.gradeFrom) {
-    const fromIndex = gradeNames.indexOf(params.gradeFrom);
-    if (fromIndex !== -1) {
-      students = students.filter((s) => {
-        const idx = gradeNames.indexOf(s.current_grade);
-        return idx >= fromIndex;
-      });
-    }
-  }
-  if (params.gradeTo) {
-    const toIndex = gradeNames.indexOf(params.gradeTo);
-    if (toIndex !== -1) {
-      students = students.filter((s) => {
-        const idx = gradeNames.indexOf(s.current_grade);
-        return idx <= toIndex;
-      });
-    }
+    query = query.eq("class", Number(params.class));
   }
   if (params.name) {
-    students = students.filter((s) => s.name.includes(params.name!));
+    query = query.ilike("name", `%${params.name}%`);
+  }
+  // グレード範囲フィルター
+  {
+    const fromIndex = params.gradeFrom
+      ? gradeNames.indexOf(params.gradeFrom)
+      : -1;
+    const toIndex = params.gradeTo
+      ? gradeNames.indexOf(params.gradeTo)
+      : -1;
+    const sliceFrom = fromIndex !== -1 ? fromIndex : 0;
+    const sliceTo = toIndex !== -1 ? toIndex + 1 : gradeNames.length;
+    if (fromIndex !== -1 || toIndex !== -1) {
+      query = query.in("current_grade", gradeNames.slice(sliceFrom, sliceTo));
+    }
   }
 
-  // 直近3日間のスコアを取得
+  // ページネーション
+  const currentPage = Math.max(1, Number(params.page) || 1);
+  const from = (currentPage - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+  query = query.range(from, to);
+
+  const { data: studentData, count } = await query;
+  const students = (studentData ?? []) as Student[];
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  // 直近3日間のスコアを取得（表示中の生徒のみ）
   const recentDates = getRecentDates(3);
   const oldestDate = recentDates[recentDates.length - 1];
 
-  const { data: records } = await supabase
-    .from("quiz_records")
-    .select("*")
-    .gte("taken_at", `${oldestDate}T00:00:00+09:00`)
-    .order("taken_at", { ascending: false });
-
-  const allRecords = (records ?? []) as QuizRecord[];
-
-  // student_id → date → score のマップを作成
   const scoreMap = new Map<string, Map<string, number | null>>();
-  for (const record of allRecords) {
-    const date = record.taken_at.slice(0, 10);
-    if (!scoreMap.has(record.student_id)) {
-      scoreMap.set(record.student_id, new Map());
+
+  if (students.length > 0) {
+    const studentIds = students.map((s) => s.id);
+    const { data: records } = await supabase
+      .from("quiz_records")
+      .select("*")
+      .in("student_id", studentIds)
+      .gte("taken_at", `${oldestDate}T00:00:00+09:00`)
+      .order("taken_at", { ascending: false });
+
+    const allRecords = (records ?? []) as QuizRecord[];
+
+    for (const record of allRecords) {
+      const date = record.taken_at.slice(0, 10);
+      if (!scoreMap.has(record.student_id)) {
+        scoreMap.set(record.student_id, new Map());
+      }
+      const studentMap = scoreMap.get(record.student_id)!;
+      if (!studentMap.has(date)) {
+        studentMap.set(date, record.score);
+      }
     }
-    const studentMap = scoreMap.get(record.student_id)!;
-    if (!studentMap.has(date)) {
-      studentMap.set(date, record.score);
+  }
+
+  // Pagination に渡す searchParams（page を除く）
+  const paginationParams: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (key !== "page" && value) {
+      paginationParams[key] = value;
     }
   }
 
@@ -125,12 +146,19 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
 
       <StudentFilter grades={gradeNames} />
 
-      <p className="text-xs text-gray-500">{students.length}件の生徒</p>
+      <p className="text-xs text-gray-500">{totalCount}件の生徒</p>
 
       <StudentTable
         students={students}
         recentDates={recentDates}
         scoreMap={scoreMap}
+      />
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        basePath="/teacher/students"
+        searchParams={paginationParams}
       />
     </div>
   );
