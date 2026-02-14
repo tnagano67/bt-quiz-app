@@ -1,0 +1,161 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { getRecentDates } from "@/lib/date-utils";
+import ScoreChart from "@/components/ScoreChart";
+import StatisticsCard from "@/components/StatisticsCard";
+import Link from "next/link";
+import type { Student, QuizRecord } from "@/lib/types/database";
+
+type Props = {
+  params: Promise<{ studentId: string }>;
+};
+
+export default async function StudentDetailPage({ params }: Props) {
+  const { studentId } = await params;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !user.email) redirect("/login");
+
+  // 教員チェック
+  const { data: teacher } = await supabase
+    .from("teachers")
+    .select("id")
+    .eq("email", user.email)
+    .single();
+  if (!teacher) redirect("/");
+
+  // 生徒情報を取得
+  const { data: studentData } = await supabase
+    .from("students")
+    .select("*")
+    .eq("id", studentId)
+    .single();
+
+  if (!studentData) {
+    return (
+      <div className="rounded-lg bg-yellow-50 p-8 text-center">
+        <p className="font-bold text-yellow-800">生徒が見つかりません。</p>
+        <Link
+          href="/teacher/students"
+          className="mt-4 inline-block text-sm text-teal-700 hover:underline"
+        >
+          生徒一覧に戻る
+        </Link>
+      </div>
+    );
+  }
+
+  const student = studentData as Student;
+
+  // 直近30日間の成績を取得
+  const recentDates = getRecentDates(30);
+  const oldestDate = recentDates[recentDates.length - 1];
+
+  const { data: records } = await supabase
+    .from("quiz_records")
+    .select("*")
+    .eq("student_id", student.id)
+    .gte("taken_at", `${oldestDate}T00:00:00+09:00`)
+    .order("taken_at", { ascending: false });
+
+  const allRecords = (records ?? []) as QuizRecord[];
+
+  // 統計計算
+  const totalAttempts = allRecords.length;
+  const averageScore =
+    totalAttempts > 0
+      ? Math.round(
+          allRecords.reduce((sum, r) => sum + r.score, 0) / totalAttempts
+        )
+      : 0;
+  const highestScore =
+    totalAttempts > 0 ? Math.max(...allRecords.map((r) => r.score)) : 0;
+  const passRate =
+    totalAttempts > 0
+      ? Math.round(
+          (allRecords.filter((r) => r.passed).length / totalAttempts) * 100
+        )
+      : 0;
+
+  // チャート用のスコアデータ
+  const recordByDate = new Map<string, QuizRecord>();
+  for (const record of allRecords) {
+    const date = record.taken_at.slice(0, 10);
+    if (!recordByDate.has(date)) {
+      recordByDate.set(date, record);
+    }
+  }
+
+  const scores = recentDates.map((date) => {
+    const record = recordByDate.get(date);
+    return {
+      date,
+      score: record ? record.score : null,
+      passed: record ? record.passed : null,
+    };
+  });
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Link
+        href="/teacher/students"
+        className="text-sm text-teal-700 hover:underline"
+      >
+        &larr; 生徒一覧に戻る
+      </Link>
+
+      {/* 基本情報 */}
+      <div className="rounded-xl border-2 border-teal-200 bg-teal-50/50 p-6">
+        <h2 className="text-lg font-bold text-teal-800">{student.name}</h2>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div>
+            <p className="text-xs text-teal-600">学年・組・番号</p>
+            <p className="font-medium text-gray-800">
+              {student.year}年{student.class}組{student.number}番
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-teal-600">現在のグレード</p>
+            <p className="font-medium text-gray-800">{student.current_grade}</p>
+          </div>
+          <div>
+            <p className="text-xs text-teal-600">連続合格日数</p>
+            <p className="font-medium text-gray-800">
+              {student.consecutive_pass_days}日
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-teal-600">最終挑戦日</p>
+            <p className="font-medium text-gray-800">
+              {student.last_challenge_date ?? "未受験"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 統計 */}
+      {totalAttempts > 0 ? (
+        <>
+          <StatisticsCard
+            totalAttempts={totalAttempts}
+            averageScore={averageScore}
+            highestScore={highestScore}
+            passRate={passRate}
+          />
+          <ScoreChart
+            scores={scores}
+            title="直近30日間の成績"
+            maxTicksLimit={10}
+          />
+        </>
+      ) : (
+        <div className="rounded-lg bg-gray-50 p-8 text-center text-sm text-gray-500">
+          直近30日間の受験記録がありません。
+        </div>
+      )}
+    </div>
+  );
+}

@@ -29,9 +29,15 @@ type ScoreEntry = {
 
 type Props = {
   scores: ScoreEntry[];
+  title?: string;
+  maxTicksLimit?: number;
 };
 
-export default function ScoreChart({ scores }: Props) {
+export default function ScoreChart({
+  scores,
+  title = "直近10日間の成績",
+  maxTicksLimit,
+}: Props) {
   // 古い順に並べる（チャート表示用）
   const reversed = [...scores].reverse();
 
@@ -84,15 +90,14 @@ export default function ScoreChart({ scores }: Props) {
       },
       x: {
         title: { display: true, text: "日付" },
+        ticks: maxTicksLimit ? { maxTicksLimit } : {},
       },
     },
   };
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h3 className="mb-3 text-sm font-bold text-gray-700">
-        直近10日間の成績
-      </h3>
+      <h3 className="mb-3 text-sm font-bold text-gray-700">{title}</h3>
       <Bar data={data} options={options} />
     </div>
   );

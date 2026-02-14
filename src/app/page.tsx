@@ -7,9 +7,45 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) {
-    redirect("/student");
-  } else {
+  if (!user || !user.email) {
     redirect("/login");
   }
+
+  // 教員チェック
+  const { data: teacher } = await supabase
+    .from("teachers")
+    .select("id")
+    .eq("email", user.email)
+    .single();
+
+  if (teacher) {
+    redirect("/teacher");
+  }
+
+  // 生徒チェック
+  const { data: student } = await supabase
+    .from("students")
+    .select("id")
+    .eq("email", user.email)
+    .single();
+
+  if (student) {
+    redirect("/student");
+  }
+
+  // どちらにも該当しない場合
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <div className="rounded-lg bg-yellow-50 p-8 text-center">
+        <p className="text-lg font-bold text-yellow-800">
+          アカウントが登録されていません
+        </p>
+        <p className="mt-2 text-sm text-yellow-600">
+          このメールアドレス（{user.email}）は生徒・教員として登録されていません。
+          <br />
+          管理者にお問い合わせください。
+        </p>
+      </div>
+    </div>
+  );
 }

@@ -36,6 +36,13 @@ export type Question = {
   created_at: string;
 };
 
+export type Teacher = {
+  id: string;
+  email: string;
+  name: string;
+  created_at: string;
+};
+
 export type QuizRecord = {
   id: string;
   student_id: string;

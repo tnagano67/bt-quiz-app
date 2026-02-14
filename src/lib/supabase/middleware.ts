@@ -29,8 +29,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 未ログインで /student/* にアクセスした場合は /login にリダイレクト
-  if (!user && request.nextUrl.pathname.startsWith("/student")) {
+  // 未ログインで /student/* または /teacher/* にアクセスした場合は /login にリダイレクト
+  if (
+    !user &&
+    (request.nextUrl.pathname.startsWith("/student") ||
+      request.nextUrl.pathname.startsWith("/teacher"))
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

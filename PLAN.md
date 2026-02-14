@@ -10,7 +10,7 @@ GAS（Google Apps Script）+ Google スプレッドシートで構築された�
 ### ユーザー決定事項
 - 新規 Next.js プロジェクトを作成
 - 新規 Supabase プロジェクトを作成
-- Google OAuth（Supabase Auth経由）で認証
+- Google OAuth（Supabase Auth経由）で認証、メールアドレスで生徒を直接照合
 - **生徒機能から先に実装**（教員機能は後日）
 - 問題データもSupabaseに保存
 
@@ -53,23 +53,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 Supabase SQL Editor で実行する SQL:
 
-**profiles** - ユーザーロール管理（auth.usersと1:1）
-```sql
-CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT UNIQUE NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('teacher', 'student')),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can read own profile" ON profiles FOR SELECT USING (auth.uid() = id);
-```
-
 **students** - 生徒情報（GAS「生徒名簿」相当）
 ```sql
 CREATE TABLE students (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id UUID UNIQUE NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  email TEXT UNIQUE NOT NULL,
   year INTEGER NOT NULL,
   class INTEGER NOT NULL,
   number INTEGER NOT NULL,
@@ -81,8 +69,8 @@ CREATE TABLE students (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Students can read own data" ON students FOR SELECT USING (profile_id = auth.uid());
-CREATE POLICY "Students can update own data" ON students FOR UPDATE USING (profile_id = auth.uid());
+CREATE POLICY "Students can read own data" ON students FOR SELECT USING (email = auth.jwt() ->> 'email');
+CREATE POLICY "Students can update own data" ON students FOR UPDATE USING (email = auth.jwt() ->> 'email');
 ```
 
 **grade_definitions** - グレード定義（GAS「グレード定義」相当）
@@ -134,28 +122,12 @@ CREATE TABLE quiz_records (
 );
 ALTER TABLE quiz_records ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Students can read own records" ON quiz_records FOR SELECT
-  USING (student_id IN (SELECT id FROM students WHERE profile_id = auth.uid()));
+  USING (student_id IN (SELECT id FROM students WHERE email = auth.jwt() ->> 'email'));
 CREATE POLICY "Students can insert own records" ON quiz_records FOR INSERT
-  WITH CHECK (student_id IN (SELECT id FROM students WHERE profile_id = auth.uid()));
+  WITH CHECK (student_id IN (SELECT id FROM students WHERE email = auth.jwt() ->> 'email'));
 
 CREATE INDEX idx_quiz_records_student_id ON quiz_records(student_id);
 CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
-```
-
-**自動プロフィール作成トリガー:**
-```sql
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, email, role)
-  VALUES (NEW.id, NEW.email, 'student');
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 ```
 
 ### 1-5. Google OAuth 設定（手動）
@@ -205,7 +177,7 @@ INSERT INTO questions (question_id, question_text, choice_1, choice_2, choice_3,
   (12, 'lionの意味は？', '虎', 'ライオン', '熊', '象', 2);
 ```
 
-**Phase 1 完了条件:** Google OAuth でログインでき、ロール判定で生徒ページにリダイレクトされる
+**Phase 1 完了条件:** Google OAuth でログインでき、メールアドレスで生徒が特定され `/student` にリダイレクトされる
 
 ---
 
