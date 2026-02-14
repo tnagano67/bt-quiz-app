@@ -42,6 +42,15 @@ export default async function TeacherHomePage() {
             生徒一覧の閲覧・検索、成績の確認ができます。
           </p>
         </Link>
+        <Link
+          href="/teacher/grades"
+          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-colors hover:border-teal-300 hover:bg-teal-50/30"
+        >
+          <h3 className="text-base font-bold text-gray-800">グレード管理</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            グレード定義の追加・編集・削除ができます。
+          </p>
+        </Link>
       </div>
     </div>
   );

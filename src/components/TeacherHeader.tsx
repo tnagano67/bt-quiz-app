@@ -9,6 +9,7 @@ const navItems = [
   { href: "/teacher", label: "ホーム" },
   { href: "/teacher/students", label: "生徒一覧" },
   { href: "/teacher/questions", label: "問題管理" },
+  { href: "/teacher/grades", label: "グレード管理" },
 ];
 
 export default function TeacherHeader() {
