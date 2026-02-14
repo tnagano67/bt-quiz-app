@@ -81,12 +81,7 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-800">問題管理</h2>
-        <Link
-          href="/teacher/questions/new"
-          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
-        >
-          問題を追加
-        </Link>
+        <CsvImport />
       </div>
 
       {/* グレードフィルター */}
@@ -118,8 +113,6 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
           </Link>
         ))}
       </div>
-
-      <CsvImport />
 
       <p className="text-xs text-gray-500">{totalCount}件の問題</p>
 

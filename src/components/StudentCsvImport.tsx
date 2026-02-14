@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { importStudents } from "@/app/teacher/students/actions";
 
 type ParsedRow = {
@@ -55,11 +56,25 @@ function parseCsvLine(line: string): string[] {
   return fields;
 }
 
+type Mode = "closed" | "menu" | "csv";
+
 export default function StudentCsvImport() {
-  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>("closed");
   const [state, setState] = useState<ImportState>({ phase: "idle" });
   const [parseError, setParseError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (mode !== "menu") return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMode("closed");
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [mode]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -156,14 +171,32 @@ export default function StudentCsvImport() {
     }
   }
 
-  if (!open) {
+  if (mode === "closed" || mode === "menu") {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm font-medium text-gray-500 hover:border-teal-400 hover:text-teal-600"
-      >
-        CSVで生徒を一括追加
-      </button>
+      <div className="relative" ref={menuRef}>
+        <button
+          onClick={() => setMode(mode === "menu" ? "closed" : "menu")}
+          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
+        >
+          生徒を追加
+        </button>
+        {mode === "menu" && (
+          <div className="absolute left-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+            <Link
+              href="/teacher/students/new"
+              className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              1件登録
+            </Link>
+            <button
+              onClick={() => setMode("csv")}
+              className="block w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+            >
+              CSVで一括追加
+            </button>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -171,10 +204,10 @@ export default function StudentCsvImport() {
     <div className="rounded-lg border border-gray-200 bg-white p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700">
-          CSVインポート
+          CSVインポート（生徒）
         </h3>
         <button
-          onClick={() => { handleReset(); setOpen(false); }}
+          onClick={() => { handleReset(); setMode("closed"); }}
           className="text-xs text-gray-400 hover:text-gray-600"
         >
           閉じる

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getRecentDates } from "@/lib/date-utils";
@@ -134,15 +133,8 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-800">生徒一覧</h2>
-        <Link
-          href="/teacher/students/new"
-          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
-        >
-          生徒を追加
-        </Link>
+        <StudentCsvImport />
       </div>
-
-      <StudentCsvImport />
 
       <StudentFilter grades={gradeNames} />
 
