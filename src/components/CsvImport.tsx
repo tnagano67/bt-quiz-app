@@ -85,7 +85,12 @@ export default function CsvImport() {
     setParseError(null);
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const text = ev.target?.result as string;
+      const buffer = ev.target?.result as ArrayBuffer;
+      // UTF-8 でデコードを試み、置換文字（U+FFFD）が含まれる場合は Shift_JIS で再デコード
+      let text = new TextDecoder("utf-8").decode(buffer);
+      if (text.includes("\uFFFD")) {
+        text = new TextDecoder("shift-jis").decode(buffer);
+      }
       const csvRows = parseCsvRows(text);
 
       if (csvRows.length < 2) {
@@ -155,7 +160,7 @@ export default function CsvImport() {
 
       setState({ phase: "preview", rows, fileName: file.name });
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   }
 
   async function handleImport() {
