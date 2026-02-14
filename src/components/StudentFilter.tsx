@@ -35,7 +35,7 @@ export default function StudentFilter({ grades }: Props) {
           <select
             value={searchParams.get("year") ?? ""}
             onChange={(e) => updateParams("year", e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
           >
             <option value="">全て</option>
             {[1, 2, 3].map((y) => (
@@ -53,7 +53,7 @@ export default function StudentFilter({ grades }: Props) {
           <select
             value={searchParams.get("class") ?? ""}
             onChange={(e) => updateParams("class", e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
           >
             <option value="">全て</option>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((c) => (
@@ -71,7 +71,7 @@ export default function StudentFilter({ grades }: Props) {
           <select
             value={searchParams.get("gradeFrom") ?? ""}
             onChange={(e) => updateParams("gradeFrom", e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
           >
             <option value="">全て</option>
             {grades.map((g) => (
@@ -89,7 +89,7 @@ export default function StudentFilter({ grades }: Props) {
           <select
             value={searchParams.get("gradeTo") ?? ""}
             onChange={(e) => updateParams("gradeTo", e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
           >
             <option value="">全て</option>
             {grades.map((g) => (
@@ -114,7 +114,7 @@ export default function StudentFilter({ grades }: Props) {
               }
             }}
             onBlur={(e) => updateParams("name", e.currentTarget.value)}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900 placeholder:text-gray-400"
           />
         </div>
       </div>
