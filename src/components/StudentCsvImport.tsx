@@ -56,6 +56,7 @@ function parseCsvLine(line: string): string[] {
 }
 
 export default function StudentCsvImport() {
+  const [open, setOpen] = useState(false);
   const [state, setState] = useState<ImportState>({ phase: "idle" });
   const [parseError, setParseError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -155,11 +156,30 @@ export default function StudentCsvImport() {
     }
   }
 
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm font-medium text-gray-500 hover:border-teal-400 hover:text-teal-600"
+      >
+        CSVで生徒を一括追加
+      </button>
+    );
+  }
+
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <h3 className="mb-3 text-sm font-semibold text-gray-700">
-        CSVインポート
-      </h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700">
+          CSVインポート
+        </h3>
+        <button
+          onClick={() => { handleReset(); setOpen(false); }}
+          className="text-xs text-gray-400 hover:text-gray-600"
+        >
+          閉じる
+        </button>
+      </div>
 
       {/* ファイル選択 */}
       {(state.phase === "idle" || parseError) && (
