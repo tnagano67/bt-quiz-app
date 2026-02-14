@@ -24,16 +24,18 @@ type ImportState =
       errors: string[];
     };
 
-function parseCsvLine(line: string): string[] {
-  const fields: string[] = [];
+/** CSV テキスト全体をパースし、複数行フィールド（クォート内の改行）に対応 */
+function parseCsvRows(text: string): string[][] {
+  const rows: string[][] = [];
   let current = "";
   let inQuotes = false;
+  let fields: string[] = [];
 
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
     if (inQuotes) {
       if (ch === '"') {
-        if (i + 1 < line.length && line[i + 1] === '"') {
+        if (i + 1 < text.length && text[i + 1] === '"') {
           current += '"';
           i++;
         } else {
@@ -48,13 +50,27 @@ function parseCsvLine(line: string): string[] {
       } else if (ch === ",") {
         fields.push(current);
         current = "";
+      } else if (ch === "\r") {
+        // skip \r, handle \n next
+      } else if (ch === "\n") {
+        fields.push(current);
+        current = "";
+        if (fields.some((f) => f.trim() !== "") || fields.length > 1) {
+          rows.push(fields);
+        }
+        fields = [];
       } else {
         current += ch;
       }
     }
   }
+  // 最終行（改行なしで終わる場合）
   fields.push(current);
-  return fields;
+  if (fields.some((f) => f.trim() !== "") || fields.length > 1) {
+    rows.push(fields);
+  }
+
+  return rows;
 }
 
 export default function CsvImport() {
@@ -70,17 +86,15 @@ export default function CsvImport() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      const lines = text
-        .split(/\r?\n/)
-        .filter((line) => line.trim() !== "");
+      const csvRows = parseCsvRows(text);
 
-      if (lines.length < 2) {
+      if (csvRows.length < 2) {
         setParseError("CSVにデータ行がありません");
         return;
       }
 
       // ヘッダー検証
-      const header = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
+      const header = csvRows[0].map((h) => h.trim().toLowerCase());
       const expectedHeader = [
         "question_id",
         "question_text",
@@ -103,8 +117,8 @@ export default function CsvImport() {
       const rows: ParsedRow[] = [];
       const errors: string[] = [];
 
-      for (let i = 1; i < lines.length; i++) {
-        const fields = parseCsvLine(lines[i]);
+      for (let i = 1; i < csvRows.length; i++) {
+        const fields = csvRows[i];
         if (fields.length < 7) {
           errors.push(`行${i + 1}: フィールド数が不足しています`);
           continue;
