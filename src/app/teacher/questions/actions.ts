@@ -117,6 +117,119 @@ export async function updateQuestion(
   return { success: true };
 }
 
+type ImportResult = {
+  success: boolean;
+  message?: string;
+  inserted: number;
+  updated: number;
+  errors: string[];
+};
+
+export async function importQuestions(
+  rows: QuestionInput[]
+): Promise<ImportResult> {
+  const { error } = await verifyTeacher();
+  if (error) {
+    return {
+      success: false,
+      message: error.message,
+      inserted: 0,
+      updated: 0,
+      errors: [],
+    };
+  }
+
+  const supabase = await createClient();
+  let inserted = 0;
+  let updated = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 1;
+
+    // バリデーション
+    if (
+      !Number.isInteger(row.question_id) ||
+      row.question_id < 1
+    ) {
+      errors.push(`行${rowNum}: question_id が不正です（正の整数が必要）`);
+      continue;
+    }
+    if (
+      !Number.isInteger(row.correct_answer) ||
+      row.correct_answer < 1 ||
+      row.correct_answer > 4
+    ) {
+      errors.push(`行${rowNum}: correct_answer は1〜4の整数が必要です`);
+      continue;
+    }
+    if (
+      !row.question_text.trim() ||
+      !row.choice_1.trim() ||
+      !row.choice_2.trim() ||
+      !row.choice_3.trim() ||
+      !row.choice_4.trim()
+    ) {
+      errors.push(`行${rowNum}: 空のフィールドがあります`);
+      continue;
+    }
+
+    // 既存チェック → UPDATE or INSERT
+    const { data: existing } = await supabase
+      .from("questions")
+      .select("id")
+      .eq("question_id", row.question_id)
+      .single();
+
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from("questions")
+        .update({
+          question_text: row.question_text,
+          choice_1: row.choice_1,
+          choice_2: row.choice_2,
+          choice_3: row.choice_3,
+          choice_4: row.choice_4,
+          correct_answer: row.correct_answer,
+        })
+        .eq("question_id", row.question_id);
+
+      if (updateError) {
+        errors.push(`行${rowNum}: 更新に失敗しました`);
+      } else {
+        updated++;
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from("questions")
+        .insert({
+          question_id: row.question_id,
+          question_text: row.question_text,
+          choice_1: row.choice_1,
+          choice_2: row.choice_2,
+          choice_3: row.choice_3,
+          choice_4: row.choice_4,
+          correct_answer: row.correct_answer,
+        });
+
+      if (insertError) {
+        errors.push(`行${rowNum}: 追加に失敗しました`);
+      } else {
+        inserted++;
+      }
+    }
+  }
+
+  revalidatePath("/teacher/questions");
+  return {
+    success: errors.length === 0,
+    inserted,
+    updated,
+    errors,
+  };
+}
+
 export async function deleteQuestion(questionId: number): Promise<Result> {
   const { error } = await verifyTeacher();
   if (error) return error;

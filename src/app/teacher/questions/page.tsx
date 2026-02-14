@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import QuestionTable from "@/components/QuestionTable";
+import CsvImport from "@/components/CsvImport";
 import type { Question, GradeDefinition } from "@/lib/types/database";
 
 type Props = {
@@ -94,6 +95,8 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
           </Link>
         ))}
       </div>
+
+      <CsvImport />
 
       <p className="text-xs text-gray-500">{questions.length}件の問題</p>
 
