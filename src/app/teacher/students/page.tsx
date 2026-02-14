@@ -148,6 +148,13 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
 
       <p className="text-xs text-gray-500">{totalCount}件の生徒</p>
 
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        basePath="/teacher/students"
+        searchParams={paginationParams}
+      />
+
       <StudentTable
         students={students}
         recentDates={recentDates}

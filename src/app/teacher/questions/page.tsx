@@ -123,6 +123,13 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
 
       <p className="text-xs text-gray-500">{totalCount}件の問題</p>
 
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        basePath="/teacher/questions"
+        searchParams={paginationParams}
+      />
+
       <QuestionTable questions={questions} />
 
       <Pagination
