@@ -140,15 +140,14 @@ export async function importQuestions(
   }
 
   const supabase = await createClient();
-  let inserted = 0;
-  let updated = 0;
   const errors: string[] = [];
 
+  // バリデーション
+  const validRows: QuestionInput[] = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 1;
 
-    // バリデーション
     if (
       !Number.isInteger(row.question_id) ||
       row.question_id < 1
@@ -174,47 +173,50 @@ export async function importQuestions(
       errors.push(`行${rowNum}: 空のフィールドがあります`);
       continue;
     }
+    validRows.push(row);
+  }
 
-    // 既存チェック → UPDATE or INSERT
-    const { data: existing } = await supabase
-      .from("questions")
-      .select("id")
-      .eq("question_id", row.question_id)
-      .single();
+  if (validRows.length === 0) {
+    revalidatePath("/teacher/questions");
+    return { success: errors.length === 0, inserted: 0, updated: 0, errors };
+  }
 
-    if (existing) {
-      const { error: updateError } = await supabase
-        .from("questions")
-        .update({
-          question_text: row.question_text,
-          choice_1: row.choice_1,
-          choice_2: row.choice_2,
-          choice_3: row.choice_3,
-          choice_4: row.choice_4,
-          correct_answer: row.correct_answer,
-        })
-        .eq("question_id", row.question_id);
+  // 既存レコードを一括取得
+  const questionIds = validRows.map((r) => r.question_id);
+  const { data: existingRows } = await supabase
+    .from("questions")
+    .select("question_id")
+    .in("question_id", questionIds);
 
-      if (updateError) {
-        errors.push(`行${rowNum}: 更新に失敗しました`);
-      } else {
+  const existingIds = new Set(
+    (existingRows ?? []).map((r) => r.question_id)
+  );
+
+  // upsert で一括処理（question_id が既存なら更新、なければ挿入）
+  const { error: upsertError } = await supabase
+    .from("questions")
+    .upsert(
+      validRows.map((row) => ({
+        question_id: row.question_id,
+        question_text: row.question_text,
+        choice_1: row.choice_1,
+        choice_2: row.choice_2,
+        choice_3: row.choice_3,
+        choice_4: row.choice_4,
+        correct_answer: row.correct_answer,
+      })),
+      { onConflict: "question_id" }
+    );
+
+  let inserted = 0;
+  let updated = 0;
+
+  if (upsertError) {
+    errors.push(`一括インポートに失敗しました: ${upsertError.message}`);
+  } else {
+    for (const row of validRows) {
+      if (existingIds.has(row.question_id)) {
         updated++;
-      }
-    } else {
-      const { error: insertError } = await supabase
-        .from("questions")
-        .insert({
-          question_id: row.question_id,
-          question_text: row.question_text,
-          choice_1: row.choice_1,
-          choice_2: row.choice_2,
-          choice_3: row.choice_3,
-          choice_4: row.choice_4,
-          correct_answer: row.correct_answer,
-        });
-
-      if (insertError) {
-        errors.push(`行${rowNum}: 追加に失敗しました`);
       } else {
         inserted++;
       }

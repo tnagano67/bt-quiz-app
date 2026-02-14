@@ -115,15 +115,14 @@ export async function importStudents(
 
   const supabase = await createClient();
   const currentGrade = await getFirstGradeName();
-  let inserted = 0;
-  let updated = 0;
   const errors: string[] = [];
 
+  // バリデーション
+  const validRows: StudentInput[] = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 1;
 
-    // バリデーション
     if (!row.email.trim()) {
       errors.push(`行${rowNum}: メールアドレスが空です`);
       continue;
@@ -155,48 +154,79 @@ export async function importStudents(
       errors.push(`行${rowNum}: 氏名が空です`);
       continue;
     }
+    validRows.push(row);
+  }
 
-    // 既存チェック → UPDATE or INSERT
-    const { data: existing } = await supabase
+  if (validRows.length === 0) {
+    revalidatePath("/teacher/students");
+    return { success: errors.length === 0, inserted: 0, updated: 0, errors };
+  }
+
+  // 既存レコードを一括取得
+  const emails = validRows.map((r) => r.email);
+  const { data: existingRows } = await supabase
+    .from("students")
+    .select("email")
+    .in("email", emails);
+
+  const existingEmails = new Set(
+    (existingRows ?? []).map((r) => r.email)
+  );
+
+  // 新規挿入と更新を分けて一括処理
+  const toInsert = validRows
+    .filter((r) => !existingEmails.has(r.email))
+    .map((r) => ({
+      email: r.email,
+      year: r.year,
+      class: r.class,
+      number: r.number,
+      name: r.name,
+      current_grade: currentGrade,
+      consecutive_pass_days: 0,
+      last_challenge_date: null,
+    }));
+
+  const toUpdate = validRows.filter((r) => existingEmails.has(r.email));
+
+  let inserted = 0;
+  let updated = 0;
+
+  // 新規を一括挿入
+  if (toInsert.length > 0) {
+    const { error: insertError } = await supabase
       .from("students")
-      .select("id")
-      .eq("email", row.email)
-      .single();
+      .insert(toInsert);
 
-    if (existing) {
-      const { error: updateError } = await supabase
-        .from("students")
-        .update({
-          year: row.year,
-          class: row.class,
-          number: row.number,
-          name: row.name,
-        })
-        .eq("email", row.email);
+    if (insertError) {
+      errors.push(`一括挿入に失敗しました: ${insertError.message}`);
+    } else {
+      inserted = toInsert.length;
+    }
+  }
 
-      if (updateError) {
-        errors.push(`行${rowNum}: 更新に失敗しました`);
+  // 更新は current_grade 等を上書きしないため upsert ではなく個別更新だが、
+  // Promise.all で並列実行して高速化
+  if (toUpdate.length > 0) {
+    const updateResults = await Promise.all(
+      toUpdate.map((row) =>
+        supabase
+          .from("students")
+          .update({
+            year: row.year,
+            class: row.class,
+            number: row.number,
+            name: row.name,
+          })
+          .eq("email", row.email)
+      )
+    );
+
+    for (let i = 0; i < updateResults.length; i++) {
+      if (updateResults[i].error) {
+        errors.push(`更新に失敗しました: ${toUpdate[i].email}`);
       } else {
         updated++;
-      }
-    } else {
-      const { error: insertError } = await supabase
-        .from("students")
-        .insert({
-          email: row.email,
-          year: row.year,
-          class: row.class,
-          number: row.number,
-          name: row.name,
-          current_grade: currentGrade,
-          consecutive_pass_days: 0,
-          last_challenge_date: null,
-        });
-
-      if (insertError) {
-        errors.push(`行${rowNum}: 追加に失敗しました`);
-      } else {
-        inserted++;
       }
     }
   }
