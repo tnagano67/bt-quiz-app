@@ -244,26 +244,35 @@ export default async function TeacherHomePage({ searchParams }: Props) {
               該当する生徒がいません
             </p>
           ) : (
-            <ul className="space-y-2">
-              {hardworkingStudents.map((s) => (
-                <li
-                  key={s.id}
-                  className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2"
-                >
-                  <div>
-                    <span className="text-sm font-medium text-gray-800">
-                      {s.name}
+            <>
+              <div className="mb-1 flex items-center justify-between px-3 text-xs font-medium text-gray-400">
+                <span>年/組/番　名前（級）</span>
+                <span>連続合格</span>
+              </div>
+              <ul className="space-y-2">
+                {hardworkingStudents.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2"
+                  >
+                    <div>
+                      <span className="mr-2 text-xs text-gray-500">
+                        {s.year}-{s.class}-{s.number}
+                      </span>
+                      <span className="text-sm font-medium text-gray-800">
+                        {s.name}
+                      </span>
+                      <span className="ml-2 text-xs text-gray-500">
+                        {s.current_grade}
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold text-green-700">
+                      {s.consecutive_pass_days}日連続合格
                     </span>
-                    <span className="ml-2 text-xs text-gray-500">
-                      {s.current_grade}
-                    </span>
-                  </div>
-                  <span className="text-sm font-bold text-green-700">
-                    {s.consecutive_pass_days}日連続合格
-                  </span>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </div>
 
@@ -277,28 +286,37 @@ export default async function TeacherHomePage({ searchParams }: Props) {
               該当する生徒がいません
             </p>
           ) : (
-            <ul className="space-y-2">
-              {slackingStudents.map((s) => (
-                <li
-                  key={s.id}
-                  className="flex items-center justify-between rounded-lg bg-orange-50 px-3 py-2"
-                >
-                  <div>
-                    <span className="text-sm font-medium text-gray-800">
-                      {s.name}
+            <>
+              <div className="mb-1 flex items-center justify-between px-3 text-xs font-medium text-gray-400">
+                <span>年/組/番　名前（級）</span>
+                <span>最終受験日</span>
+              </div>
+              <ul className="space-y-2">
+                {slackingStudents.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center justify-between rounded-lg bg-orange-50 px-3 py-2"
+                  >
+                    <div>
+                      <span className="mr-2 text-xs text-gray-500">
+                        {s.year}-{s.class}-{s.number}
+                      </span>
+                      <span className="text-sm font-medium text-gray-800">
+                        {s.name}
+                      </span>
+                      <span className="ml-2 text-xs text-gray-500">
+                        {s.current_grade}
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold text-orange-700">
+                      最終受験日：{s.last_challenge_date
+                        ? formatDateShort(s.last_challenge_date)
+                        : "なし"}
                     </span>
-                    <span className="ml-2 text-xs text-gray-500">
-                      {s.current_grade}
-                    </span>
-                  </div>
-                  <span className="text-sm font-bold text-orange-700">
-                    最終受験日：{s.last_challenge_date
-                      ? formatDateShort(s.last_challenge_date)
-                      : "なし"}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </div>
       </div>
