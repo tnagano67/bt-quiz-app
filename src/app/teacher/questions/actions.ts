@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateQuestionInput } from "@/lib/validation";
 
 type QuestionInput = {
   question_id: number;
@@ -147,30 +148,9 @@ export async function importQuestions(
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 1;
-
-    if (
-      !Number.isInteger(row.question_id) ||
-      row.question_id < 1
-    ) {
-      errors.push(`行${rowNum}: question_id が不正です（正の整数が必要）`);
-      continue;
-    }
-    if (
-      !Number.isInteger(row.correct_answer) ||
-      row.correct_answer < 1 ||
-      row.correct_answer > 4
-    ) {
-      errors.push(`行${rowNum}: correct_answer は1〜4の整数が必要です`);
-      continue;
-    }
-    if (
-      !row.question_text.trim() ||
-      !row.choice_1.trim() ||
-      !row.choice_2.trim() ||
-      !row.choice_3.trim() ||
-      !row.choice_4.trim()
-    ) {
-      errors.push(`行${rowNum}: 空のフィールドがあります`);
+    const result = validateQuestionInput(row, rowNum);
+    if (!result.valid) {
+      errors.push(result.error!);
       continue;
     }
     validRows.push(row);

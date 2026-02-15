@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateCsvText } from "@/lib/csv-utils";
+import {
+  getGradeFilter,
+  calculateStudentStats,
+  formatStudentExportRow,
+  formatRecordExportRow,
+} from "@/lib/export-utils";
 import type { Student, QuizRecord, GradeDefinition } from "@/lib/types/database";
 
 async function verifyTeacher() {
@@ -17,21 +23,6 @@ async function verifyTeacher() {
     .single();
 
   return teacher ? supabase : null;
-}
-
-function getGradeFilter(
-  gradeNames: string[],
-  gradeFrom: string | null,
-  gradeTo: string | null
-): string[] | null {
-  const fromIndex = gradeFrom ? gradeNames.indexOf(gradeFrom) : -1;
-  const toIndex = gradeTo ? gradeNames.indexOf(gradeTo) : -1;
-  const sliceFrom = fromIndex !== -1 ? fromIndex : 0;
-  const sliceTo = toIndex !== -1 ? toIndex + 1 : gradeNames.length;
-  if (fromIndex !== -1 || toIndex !== -1) {
-    return gradeNames.slice(sliceFrom, sliceTo);
-  }
-  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -108,20 +99,14 @@ async function handleStudentsExport(
   }
 
   // インメモリで統計計算
-  const statsMap = new Map<
-    string,
-    { count: number; totalScore: number; maxScore: number; passCount: number }
-  >();
+  const recordsByStudent = new Map<string, QuizRecord[]>();
   for (const r of allRecords) {
-    let s = statsMap.get(r.student_id);
-    if (!s) {
-      s = { count: 0, totalScore: 0, maxScore: 0, passCount: 0 };
-      statsMap.set(r.student_id, s);
+    let arr = recordsByStudent.get(r.student_id);
+    if (!arr) {
+      arr = [];
+      recordsByStudent.set(r.student_id, arr);
     }
-    s.count++;
-    s.totalScore += r.score;
-    if (r.score > s.maxScore) s.maxScore = r.score;
-    if (r.passed) s.passCount++;
+    arr.push(r);
   }
 
   const header = [
@@ -129,24 +114,9 @@ async function handleStudentsExport(
     "最終挑戦日", "受験回数", "平均点", "最高点", "合格率",
   ];
   const rows: (string | number)[][] = students.map((st) => {
-    const s = statsMap.get(st.id);
-    const count = s?.count ?? 0;
-    const avg = count > 0 ? Math.round(((s!.totalScore / count) * 10)) / 10 : 0;
-    const max = s?.maxScore ?? 0;
-    const passRate = count > 0 ? Math.round((s!.passCount / count) * 1000) / 10 : 0;
-    return [
-      st.year,
-      st.class,
-      st.number,
-      st.name,
-      st.current_grade,
-      st.consecutive_pass_days,
-      st.last_challenge_date ?? "",
-      count,
-      avg,
-      max,
-      `${passRate}%`,
-    ];
+    const records = recordsByStudent.get(st.id);
+    const stats = records ? calculateStudentStats(records) : null;
+    return formatStudentExportRow(st, stats);
   });
 
   const csv = generateCsvText([header, ...rows]);
@@ -219,16 +189,7 @@ async function handleRecordsExport(
   const header = ["学年", "組", "番号", "氏名", "受験日", "グレード", "スコア", "合否"];
   const rows: (string | number)[][] = records.map((r) => {
     const st = studentMap.get(r.student_id)!;
-    return [
-      st.year,
-      st.class,
-      st.number,
-      st.name,
-      r.taken_at.slice(0, 10),
-      r.grade,
-      r.score,
-      r.passed ? "合格" : "不合格",
-    ];
+    return formatRecordExportRow(r, st);
   });
 
   const csv = generateCsvText([header, ...rows]);

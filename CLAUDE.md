@@ -32,7 +32,7 @@ npm run test:watch   # Vitest ウォッチモード
 npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
 ```
 
-テストファイルはソースファイルの隣に `*.test.ts` で配置（コロケーション方式）。
+テストファイルはソースファイルの隣に `*.test.ts`（または `*.test.tsx`）で配置（コロケーション方式）。テスト用モックユーティリティは `src/test-utils/` に配置。
 
 ## アーキテクチャ
 
@@ -76,10 +76,12 @@ npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
 
 - `src/lib/supabase/` — Supabase クライアント: `client.ts`（ブラウザ用）、`server.ts`（SSR用・`cookies()` 使用）、`middleware.ts`（セッション更新・認証ガード）
 - `src/lib/types/database.ts` — DB テーブルの型: `Student`, `Teacher`, `GradeDefinition`, `Question`, `QuizRecord`
-- `src/lib/quiz-logic.ts` — `shuffleArray`（Fisher-Yates）、`shuffleChoices`、`gradeQuiz`
+- `src/lib/quiz-logic.ts` — `shuffleArray`（Fisher-Yates）、`shuffleChoices`、`gradeQuiz`、`verifyScore`（サーバー側再採点）
 - `src/lib/grade-logic.ts` — `calculateGradeAdvancement`（連続日数・昇級判定）
 - `src/lib/date-utils.ts` — `getTodayJST`、`getRecentDates`、`isTakenToday` 等（Asia/Tokyo）
 - `src/lib/csv-utils.ts` — `parseCsvRows`（RFC 4180 準拠CSVパーサー、クォート内改行対応）、`generateCsvText`（2D配列→CSV文字列変換）
+- `src/lib/validation.ts` — `validateQuestionInput`、`validateStudentInput`、`validateTeacherInput`（CSVインポート等の入力値検証を一元化）
+- `src/lib/export-utils.ts` — `getGradeFilter`、`calculateStudentStats`、`formatStudentExportRow`、`formatRecordExportRow`（CSVエクスポートのロジック）
 - `middleware.ts`（ルート） — `/student/*` と `/teacher/*` ルートの認証ガード
 
 ### Server Actions
@@ -109,12 +111,12 @@ Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` と `/te
 
 ### コアビジネスロジック
 
-- **小テスト送信フロー**: クライアント側で即時採点（`quiz-logic.ts`）→ 結果表示 → Server Action (`quiz/actions.ts`) でサーバー側再検証・DB保存。合否判定は `grade_definitions.pass_score` に基づく。
+- **小テスト送信フロー**: クライアント側で即時採点（`quiz-logic.ts`）→ 結果表示 → Server Action (`quiz/actions.ts`) でサーバー側再採点（`verifyScore()`）・DB保存。合否判定は `grade_definitions.pass_score` に基づく。
 - **グレード進級** (`grade-logic.ts`): 合格 + 本日未受験 → 連続日数+1 → 必要日数到達で昇級・リセット。不合格 → 連続日数を0にリセット。
 - **日次制限**: 1日1回のみ成績記録に保存。`last_challenge_date` で判定。Asia/Tokyo タイムゾーン。
 - **再受験**: `?retry=id1,id2,...` クエリパラメータで同じ問題セットを再生成。結果は保存しない。
 - **選択肢シャッフル**: `ShuffledChoice.originalIndex` で元のインデックスを追跡。回答は `originalIndex`（0-based）で管理。DB上の `correct_answer` は 1-based。
-- **CSVインポート**: `parseCsvRows`（`csv-utils.ts`）でパース → クライアント側バリデーション+プレビュー → Server Action で DB 保存。問題は upsert、生徒は新規挿入と既存更新を分離。UTF-8/Shift_JIS 自動判定。
+- **CSVインポート**: `parseCsvRows`（`csv-utils.ts`）でパース → クライアント側バリデーション+プレビュー → Server Action でバリデーション（`validation.ts`）→ DB 保存。問題は upsert、生徒は新規挿入と既存更新を分離。UTF-8/Shift_JIS 自動判定。
 - **CSVエクスポート**: `/teacher/export` でフィルター選択 → 件数確認（Server Action、`head: true`）→ Route Handler (`/api/teacher/export`) でBOM付きUTF-8 CSVダウンロード。生徒一覧（統計付き）と受験記録詳細の2種類。
 
 ### データベース（Supabase）
@@ -125,6 +127,12 @@ Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` と `/te
 
 - **行数制限**: Supabase（PostgREST）はデフォルトで最大1000行しか返さない。`.limit()` を設定してもサーバー側の `max-rows` 設定で制限される。大量のレコードを取得する場合は `.range()` によるページネーションが必要（参考: `teacher/page.tsx` の `fetchAllRecentRecords()`）。
 - **TIMESTAMPTZ フィルター**: `taken_at` 等の TIMESTAMPTZ カラムに対する `.gte()` / `.lte()` フィルターでは、日付文字列にタイムゾーンを明示する必要がある（例: `${date}T00:00:00+09:00`）。タイムゾーンなしの `YYYY-MM-DD` 文字列では正しくフィルタされない。
+
+### テストインフラ
+
+- **Vitest** 設定: `vitest.config.ts`（`src/**/*.test.ts` と `src/**/*.test.tsx` を対象）
+- **Supabase モック**: `src/test-utils/supabase-mock.ts` — `createMockSupabase()` でチェーン可能なクエリビルダーモックを生成。テーブル・操作ごとのレスポンス設定、`setTableResponse()` による動的切替に対応。`vi.mock("@/lib/supabase/server", () => mockModule)` で利用。
+- **テスト対象**: lib モジュール（`quiz-logic`、`grade-logic`、`date-utils`、`csv-utils`、`validation`、`export-utils`）、Server Actions（`quiz/actions`、`questions/actions`）
 
 ### シードスクリプト
 

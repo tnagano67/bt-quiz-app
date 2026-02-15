@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { calculateGradeAdvancement } from "@/lib/grade-logic";
 import { getTodayJST } from "@/lib/date-utils";
+import { verifyScore } from "@/lib/quiz-logic";
 import type { GradeDefinition } from "@/lib/types/database";
 import type { GradeAdvancementResult } from "@/lib/grade-logic";
 
@@ -68,18 +69,7 @@ export async function saveQuizResult(
     return { success: false, message: "問題データの検証に失敗しました" };
   }
 
-  // 問題IDの順序でソート
-  const idOrder = new Map(input.questionIds.map((id, i) => [id, i]));
-  questions.sort((a, b) => idOrder.get(a.question_id)! - idOrder.get(b.question_id)!);
-
-  let correctCount = 0;
-  for (let i = 0; i < questions.length; i++) {
-    const correctAnswer = questions[i].correct_answer - 1; // 1-based → 0-based
-    if (input.studentAnswers[i] === correctAnswer) {
-      correctCount++;
-    }
-  }
-  const verifiedScore = Math.round((correctCount / questions.length) * 100);
+  const verifiedScore = verifyScore(questions, input.questionIds, input.studentAnswers);
 
   // グレード定義を取得
   const { data: grades } = await supabase

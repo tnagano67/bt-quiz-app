@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateStudentInput } from "@/lib/validation";
 
 type StudentInput = {
   email: string;
@@ -122,36 +123,9 @@ export async function importStudents(
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 1;
-
-    if (!row.email.trim()) {
-      errors.push(`行${rowNum}: メールアドレスが空です`);
-      continue;
-    }
-    if (
-      !Number.isInteger(row.year) ||
-      row.year < 1 ||
-      row.year > 3
-    ) {
-      errors.push(`行${rowNum}: 学年は1〜3の整数が必要です`);
-      continue;
-    }
-    if (
-      !Number.isInteger(row.class) ||
-      row.class < 1 ||
-      row.class > 10
-    ) {
-      errors.push(`行${rowNum}: 組は1〜10の整数が必要です`);
-      continue;
-    }
-    if (
-      !Number.isInteger(row.number) ||
-      row.number < 1
-    ) {
-      errors.push(`行${rowNum}: 番号は正の整数が必要です`);
-      continue;
-    }
-    if (!row.name.trim()) {
-      errors.push(`行${rowNum}: 氏名が空です`);
+    const result = validateStudentInput(row, rowNum);
+    if (!result.valid) {
+      errors.push(result.error!);
       continue;
     }
     validRows.push(row);

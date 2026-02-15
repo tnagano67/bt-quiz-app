@@ -189,6 +189,16 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
   - サボっている生徒: 本日未受験、最終受験日が古い順に5名
 - 各リストに年/組/番の表示とヘッダー行を追加
 
+### Phase 11: テスト拡充・リファクタリング ✅
+
+- **バリデーションロジック抽出**: Server Actions 内のインライン検証コードを `src/lib/validation.ts` に一元化（`validateQuestionInput`、`validateStudentInput`、`validateTeacherInput`）
+- **エクスポートロジック抽出**: Route Handler 内の統計計算・行フォーマット処理を `src/lib/export-utils.ts` に分離（`getGradeFilter`、`calculateStudentStats`、`formatStudentExportRow`、`formatRecordExportRow`）
+- **採点ロジック分離**: `saveQuizResult()` 内のサーバー側再採点コードを `quiz-logic.ts` の `verifyScore()` 関数に抽出
+- **テストモック基盤**: `src/test-utils/supabase-mock.ts` — Supabase クライアントのチェーン可能なモック工場（テーブル・操作ごとのレスポンス設定、動的切替対応）
+- **ユニットテスト追加**: `validation.test.ts`（35件）、`export-utils.test.ts`（19件）、`quiz-logic.test.ts` に `verifyScore` テスト追加（6件）
+- **Server Actions テスト追加**: `quiz/actions.test.ts`（11件）、`questions/actions.test.ts`（11件）— モック Supabase による統合テスト
+- **Vitest 設定**: `.test.tsx` ファイルもテスト対象に含める
+
 ---
 
 ## 今後の候補（未着手）

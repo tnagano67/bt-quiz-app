@@ -61,3 +61,30 @@ export function gradeQuiz(
 
   return { score, passed: false, correctAnswers, results }; // passed はサーバー側で passScore と比較して決定
 }
+
+/**
+ * サーバー側でスコアを再検証する。
+ * questions は DB から取得した問題（correct_answer は 1-based）。
+ * questionIds はクライアントが送信した問題 ID 順。
+ * studentAnswers は各問の選択肢 originalIndex（0-based）。
+ */
+export function verifyScore(
+  questions: Question[],
+  questionIds: number[],
+  studentAnswers: number[]
+): number {
+  // questionIds の順序で問題を並べ替え
+  const idOrder = new Map(questionIds.map((id, i) => [id, i]));
+  const sorted = [...questions].sort(
+    (a, b) => idOrder.get(a.question_id)! - idOrder.get(b.question_id)!
+  );
+
+  let correctCount = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    const correctAnswer = sorted[i].correct_answer - 1; // 1-based → 0-based
+    if (studentAnswers[i] === correctAnswer) {
+      correctCount++;
+    }
+  }
+  return Math.round((correctCount / sorted.length) * 100);
+}

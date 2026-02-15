@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateTeacherInput } from "@/lib/validation";
 
 type Result = {
   success: boolean;
@@ -99,13 +100,9 @@ export async function importTeachers(
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 1;
-
-    if (!row.email.trim()) {
-      errors.push(`行${rowNum}: メールアドレスが空です`);
-      continue;
-    }
-    if (!row.name.trim()) {
-      errors.push(`行${rowNum}: 氏名が空です`);
+    const result = validateTeacherInput(row, rowNum);
+    if (!result.valid) {
+      errors.push(result.error!);
       continue;
     }
     validRows.push(row);

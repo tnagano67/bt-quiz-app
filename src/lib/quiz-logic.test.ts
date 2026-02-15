@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { shuffleArray, shuffleChoices, gradeQuiz } from "./quiz-logic";
+import { shuffleArray, shuffleChoices, gradeQuiz, verifyScore } from "./quiz-logic";
 import type { Question } from "@/lib/types/database";
 
 describe("shuffleArray", () => {
@@ -129,5 +129,75 @@ describe("gradeQuiz", () => {
       studentAnswer: 2,
       correctAnswer: 2,
     });
+  });
+});
+
+describe("verifyScore", () => {
+  const questions: Question[] = [
+    {
+      id: "q1",
+      question_id: 1,
+      question_text: "問題1",
+      choice_1: "A",
+      choice_2: "B",
+      choice_3: "C",
+      choice_4: "D",
+      correct_answer: 1, // 0-based: 0
+      created_at: "2024-01-01",
+    },
+    {
+      id: "q2",
+      question_id: 2,
+      question_text: "問題2",
+      choice_1: "A",
+      choice_2: "B",
+      choice_3: "C",
+      choice_4: "D",
+      correct_answer: 3, // 0-based: 2
+      created_at: "2024-01-01",
+    },
+    {
+      id: "q3",
+      question_id: 3,
+      question_text: "問題3",
+      choice_1: "A",
+      choice_2: "B",
+      choice_3: "C",
+      choice_4: "D",
+      correct_answer: 4, // 0-based: 3
+      created_at: "2024-01-01",
+    },
+  ];
+
+  it("全問正解 → 100", () => {
+    expect(verifyScore(questions, [1, 2, 3], [0, 2, 3])).toBe(100);
+  });
+
+  it("全問不正解 → 0", () => {
+    expect(verifyScore(questions, [1, 2, 3], [1, 1, 1])).toBe(0);
+  });
+
+  it("部分正解 → 33 (1/3)", () => {
+    expect(verifyScore(questions, [1, 2, 3], [0, 0, 0])).toBe(33);
+  });
+
+  it("部分正解 → 67 (2/3)", () => {
+    expect(verifyScore(questions, [1, 2, 3], [0, 2, 0])).toBe(67);
+  });
+
+  it("問題順序が異なっても正しく計算される", () => {
+    // questionIds の順が [3, 1, 2] の場合
+    // studentAnswers[0] は question_id=3 の回答 → correct_answer=4 → 0-based: 3
+    // studentAnswers[1] は question_id=1 の回答 → correct_answer=1 → 0-based: 0
+    // studentAnswers[2] は question_id=2 の回答 → correct_answer=3 → 0-based: 2
+    expect(verifyScore(questions, [3, 1, 2], [3, 0, 2])).toBe(100);
+  });
+
+  it("問題順序が異なる場合の部分正解", () => {
+    // questionIds: [2, 3, 1]
+    // studentAnswers[0] は question_id=2 → 0-based正解: 2 → 回答: 2 → 正解
+    // studentAnswers[1] は question_id=3 → 0-based正解: 3 → 回答: 0 → 不正解
+    // studentAnswers[2] は question_id=1 → 0-based正解: 0 → 回答: 0 → 正解
+    expect(verifyScore(questions, [2, 3, 1], [2, 0, 0])).toBe(67);
   });
 });
