@@ -34,9 +34,10 @@ export default async function TeacherHomePage() {
         .order("display_order", { ascending: true }),
       supabase
         .from("quiz_records")
-        .select("*")
+        .select("taken_at, passed, score, student_id, grade")
         .gte("taken_at", `${getRecentDates(30).at(-1)!}T00:00:00+09:00`)
-        .order("taken_at", { ascending: false }),
+        .order("taken_at", { ascending: false })
+        .limit(100000),
       supabase
         .from("quiz_records")
         .select("*")
@@ -46,7 +47,7 @@ export default async function TeacherHomePage() {
 
   const students = (studentsResult.data ?? []) as Student[];
   const grades = gradesResult.data ?? [];
-  const recentRecords = (recentRecordsResult.data ?? []) as QuizRecord[];
+  const recentRecords = (recentRecordsResult.data ?? []) as Pick<QuizRecord, "taken_at" | "passed" | "score" | "student_id" | "grade">[];
   const latestRecords = (latestRecordsResult.data ?? []) as QuizRecord[];
 
   // 概要統計
