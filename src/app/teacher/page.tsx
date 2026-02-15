@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import type { Teacher, Student, QuizRecord } from "@/lib/types/database";
+import type { Teacher, Student } from "@/lib/types/database";
 import { getTodayJST, getRecentDates, formatDateShort, toJSTDateString } from "@/lib/date-utils";
 import GradeDistributionChart from "@/components/GradeDistributionChart";
 import PassRateTrendChart from "@/components/PassRateTrendChart";
 import DashboardFilter from "@/components/DashboardFilter";
 
-type RecentRecord = Pick<QuizRecord, "taken_at" | "passed" | "score">;
+type RecentRecord = { taken_at: string; passed: boolean; score: number };
 
 /** Supabase の 1000 行制限を回避してページネーションで全件取得 */
 async function fetchAllRecentRecords(
@@ -116,24 +116,7 @@ export default async function TeacherHomePage({ searchParams }: Props) {
   // フィルターがある場合は student_ids で quiz_records を絞り込む
   const studentIds = hasFilter ? students.map((s) => s.id) : undefined;
 
-  const [recentRecords, latestRecordsResult] = await Promise.all([
-    fetchAllRecentRecords(supabase, sinceDate, studentIds),
-    (async () => {
-      let query = supabase
-        .from("quiz_records")
-        .select("*")
-        .order("taken_at", { ascending: false })
-        .limit(10);
-
-      if (studentIds) {
-        query = query.in("student_id", studentIds);
-      }
-
-      return query;
-    })(),
-  ]);
-
-  const latestRecords = (latestRecordsResult.data ?? []) as QuizRecord[];
+  const recentRecords = await fetchAllRecentRecords(supabase, sinceDate, studentIds);
 
   // 概要統計
   const totalStudents = students.length;
@@ -188,12 +171,21 @@ export default async function TeacherHomePage({ searchParams }: Props) {
     };
   });
 
-  // 最近の受験活動用の生徒名マップ
-  const studentMap = new Map(students.map((s) => [s.id, s]));
-  // グレード名マップ
-  const gradeNameMap = new Map(
-    grades.map((g) => [g.grade_name as string, g.grade_name as string])
-  );
+  // 頑張っている生徒（連続合格日数が多い順、上位5名）
+  const hardworkingStudents = students
+    .filter((s) => s.consecutive_pass_days > 0)
+    .sort((a, b) => b.consecutive_pass_days - a.consecutive_pass_days)
+    .slice(0, 5);
+
+  // サボっている生徒（最終受験日が古い順、今日受験済みは除外、上位5名）
+  const slackingStudents = students
+    .filter((s) => s.last_challenge_date !== todayJST)
+    .sort((a, b) => {
+      if (!a.last_challenge_date) return -1;
+      if (!b.last_challenge_date) return 1;
+      return a.last_challenge_date.localeCompare(b.last_challenge_date);
+    })
+    .slice(0, 5);
 
   // フィルターラベル
   const filterLabel = hasFilter
@@ -240,63 +232,75 @@ export default async function TeacherHomePage({ searchParams }: Props) {
         <PassRateTrendChart data={passRateTrend} />
       </div>
 
-      {/* 最近の受験活動 */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-3 text-sm font-bold text-gray-700">
-          最近の受験活動
-        </h3>
-        {latestRecords.length === 0 ? (
-          <p className="py-4 text-center text-sm text-gray-400">
-            受験記録がありません
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 text-left text-gray-500">
-                  <th className="pb-2 font-medium">生徒名</th>
-                  <th className="pb-2 font-medium">グレード</th>
-                  <th className="pb-2 font-medium">スコア</th>
-                  <th className="pb-2 font-medium">結果</th>
-                  <th className="pb-2 font-medium">日時</th>
-                </tr>
-              </thead>
-              <tbody>
-                {latestRecords.map((record) => {
-                  const student = studentMap.get(record.student_id);
-                  return (
-                    <tr
-                      key={record.id}
-                      className="border-b border-gray-100 last:border-0"
-                    >
-                      <td className="py-2">
-                        {student?.name ?? "不明"}
-                      </td>
-                      <td className="py-2 text-gray-600">
-                        {gradeNameMap.get(record.grade) ?? record.grade}
-                      </td>
-                      <td className="py-2">{record.score}点</td>
-                      <td className="py-2">
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                            record.passed
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
-                          }`}
-                        >
-                          {record.passed ? "合格" : "不合格"}
-                        </span>
-                      </td>
-                      <td className="py-2 text-gray-500">
-                        {formatDateShort(record.taken_at.slice(0, 10))}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+      {/* 頑張っている生徒 / サボっている生徒 */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* 頑張っている生徒 */}
+        <div className="rounded-xl border border-green-200 bg-white p-4 shadow-sm">
+          <h3 className="mb-3 text-sm font-bold text-green-700">
+            頑張っている生徒
+          </h3>
+          {hardworkingStudents.length === 0 ? (
+            <p className="py-4 text-center text-sm text-gray-400">
+              該当する生徒がいません
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {hardworkingStudents.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2"
+                >
+                  <div>
+                    <span className="text-sm font-medium text-gray-800">
+                      {s.name}
+                    </span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      {s.current_grade}
+                    </span>
+                  </div>
+                  <span className="text-sm font-bold text-green-700">
+                    {s.consecutive_pass_days}日連続
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* サボっている生徒 */}
+        <div className="rounded-xl border border-orange-200 bg-white p-4 shadow-sm">
+          <h3 className="mb-3 text-sm font-bold text-orange-700">
+            サボっている生徒
+          </h3>
+          {slackingStudents.length === 0 ? (
+            <p className="py-4 text-center text-sm text-gray-400">
+              該当する生徒がいません
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {slackingStudents.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between rounded-lg bg-orange-50 px-3 py-2"
+                >
+                  <div>
+                    <span className="text-sm font-medium text-gray-800">
+                      {s.name}
+                    </span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      {s.current_grade}
+                    </span>
+                  </div>
+                  <span className="text-sm font-bold text-orange-700">
+                    {s.last_challenge_date
+                      ? formatDateShort(s.last_challenge_date)
+                      : "未受験"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* ナビカード */}
