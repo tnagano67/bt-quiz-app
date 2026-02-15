@@ -66,7 +66,7 @@ export default function ExportPage() {
       <div className="rounded-xl border border-gray-200 bg-white p-4">
         <p className="mb-3 text-sm font-bold text-gray-700">エクスポート種別</p>
         <div className="flex gap-4">
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
             <input
               type="radio"
               name="exportType"
@@ -77,7 +77,7 @@ export default function ExportPage() {
             />
             生徒一覧（統計付き）
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
             <input
               type="radio"
               name="exportType"
@@ -96,11 +96,11 @@ export default function ExportPage() {
         <p className="mb-3 text-sm font-bold text-gray-700">フィルター</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
-            <label className="mb-1 block text-xs text-gray-500">学年</label>
+            <label className="mb-1 block text-xs text-gray-600">学年</label>
             <select
               value={year}
               onChange={(e) => setYear(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
             >
               <option value="">すべて</option>
               {[1, 2, 3].map((y) => (
@@ -111,11 +111,11 @@ export default function ExportPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-gray-500">組</label>
+            <label className="mb-1 block text-xs text-gray-600">組</label>
             <select
               value={cls}
               onChange={(e) => setCls(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
             >
               <option value="">すべて</option>
               {[1, 2, 3, 4, 5, 6, 7, 8].map((c) => (
@@ -126,13 +126,13 @@ export default function ExportPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-gray-500">
+            <label className="mb-1 block text-xs text-gray-600">
               グレード（から）
             </label>
             <select
               value={gradeFrom}
               onChange={(e) => setGradeFrom(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
             >
               <option value="">指定なし</option>
               {gradeNames.map((g) => (
@@ -143,13 +143,13 @@ export default function ExportPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-gray-500">
+            <label className="mb-1 block text-xs text-gray-600">
               グレード（まで）
             </label>
             <select
               value={gradeTo}
               onChange={(e) => setGradeTo(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
             >
               <option value="">指定なし</option>
               {gradeNames.map((g) => (
@@ -165,25 +165,25 @@ export default function ExportPage() {
         {exportType === "records" && (
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div>
-              <label className="mb-1 block text-xs text-gray-500">
+              <label className="mb-1 block text-xs text-gray-600">
                 受験日（から）
               </label>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-gray-500">
+              <label className="mb-1 block text-xs text-gray-600">
                 受験日（まで）
               </label>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
               />
             </div>
           </div>
@@ -221,9 +221,10 @@ export default function ExportPage() {
           </a>
         </div>
         {count === 0 && (
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-gray-600">
             条件に該当するデータがありません。フィルターを変更してください。
           </p>
+
         )}
       </div>
     </div>
