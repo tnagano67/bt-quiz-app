@@ -54,6 +54,8 @@ npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
 - `/teacher/grades` — グレード定義一覧
 - `/teacher/grades/new` — グレード定義登録
 - `/teacher/grades/[gradeId]/edit` — グレード定義編集
+- `/teacher/teachers` — 教員一覧、CSVインポート
+- `/teacher/teachers/new` — 教員登録
 - `/teacher/export` — 成績CSVエクスポート（Client Component、フィルター・件数確認・ダウンロード）
 - `/api/teacher/export` — CSVダウンロード用 Route Handler（BOM付きUTF-8）
 
@@ -86,6 +88,7 @@ npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
 - `src/app/teacher/questions/actions.ts` — 問題のCRUD + CSVインポート（upsert で一括処理）
 - `src/app/teacher/students/actions.ts` — 生徒登録 + CSVインポート（新規挿入と既存更新を分離、`current_grade` 等は上書きしない）
 - `src/app/teacher/grades/actions.ts` — グレード定義のCRUD（削除時に生徒の参照チェック）
+- `src/app/teacher/teachers/actions.ts` — 教員のCRUD + CSVインポート（upsert + `ignoreDuplicates` で既存メールをスキップ）
 - `src/app/teacher/export/actions.ts` — `countExportRows`（件数プレビュー）、`getGradeNames`（グレード選択肢取得）
 
 全 Server Action で `verifyTeacher()` による教員権限チェックを実施。変更後は `revalidatePath` でキャッシュを無効化。
@@ -116,7 +119,7 @@ Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` と `/te
 
 ### データベース（Supabase）
 
-テーブル: `students`、`teachers`、`grade_definitions`、`questions`、`quiz_records` — すべて RLS 有効。メールアドレスで Google アカウントと紐付け。RLS ポリシーは `auth.jwt() ->> 'email'` でメール照合。教員は全テーブルを閲覧・編集可能（`teachers` テーブルの存在チェック）。スキーマの SQL 定義は `PLAN.md` を参照。
+テーブル: `students`、`teachers`、`grade_definitions`、`questions`、`quiz_records` — すべて RLS 有効。メールアドレスで Google アカウントと紐付け。RLS ポリシーは `auth.jwt() ->> 'email'` でメール照合。教員は全テーブルを閲覧・編集可能（`teachers` テーブルの存在チェック）。`teachers` テーブルの SELECT ポリシーは `auth.role() = 'authenticated'`（認証済みユーザーなら読み取り可能）— ロール判定（`/` ページ）で認証直後に参照するため、自己参照の循環を避ける設計。スキーマの SQL 定義は `PLAN.md` を参照。
 
 ### Supabase クエリの注意点
 

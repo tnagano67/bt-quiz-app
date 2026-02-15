@@ -147,6 +147,7 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
 - **生徒**: `auth.jwt() ->> 'email'` で自分のデータのみ SELECT/UPDATE/INSERT
 - **教員**: `teachers` テーブルにメールが存在すれば全テーブルを SELECT/INSERT/UPDATE/DELETE 可能
 - **認証済みユーザー**: `grade_definitions` と `questions` を SELECT 可能
+- **`teachers` テーブルの SELECT**: `auth.role() = 'authenticated'`（認証済みユーザーなら読み取り可能）。ロール判定で `teachers` テーブル自体を参照するため、`EXISTS (SELECT 1 FROM teachers ...)` のような自己参照ポリシーでは循環が発生して誰も読めなくなる。そのため認証済みであれば読み取りを許可する設計。
 
 ---
 
@@ -154,6 +155,12 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
 
 - **Vercel**: デプロイ済み。本番環境で稼働中。
 - **Supabase**: 環境設定完了。本番用プロジェクトのテーブル・RLS ポリシー・認証（Google OAuth）すべて設定済み。
+
+### Phase 9.1: 教員管理機能 ✅
+
+- 教員一覧（`/teacher/teachers`）・登録（`/teacher/teachers/new`）・削除
+- 教員CSVインポート（`TeacherCsvImport`、upsert + `ignoreDuplicates`）
+- `teachers` テーブルの RLS SELECTポリシーを `auth.role() = 'authenticated'` に修正（自己参照循環の回避）
 
 ### Phase 10: 教員ダッシュボード強化 ✅
 
