@@ -137,6 +137,17 @@ E2Eテスト実行時は追加で以下が必要:
 - **行数制限**: Supabase（PostgREST）はデフォルトで最大1000行しか返さない。`.limit()` を設定してもサーバー側の `max-rows` 設定で制限される。大量のレコードを取得する場合は `.range()` によるページネーションが必要（参考: `teacher/page.tsx` の `fetchAllRecentRecords()`）。
 - **TIMESTAMPTZ フィルター**: `taken_at` 等の TIMESTAMPTZ カラムに対する `.gte()` / `.lte()` フィルターでは、日付文字列にタイムゾーンを明示する必要がある（例: `${date}T00:00:00+09:00`）。タイムゾーンなしの `YYYY-MM-DD` 文字列では正しくフィルタされない。
 
+### アクセシビリティ（WCAG AA 準拠）
+
+- **スキップナビゲーション**: 生徒/教員レイアウトに `sr-only focus:not-sr-only` スキップリンク配置、`<main id="main-content">` で遷移先を設定
+- **フォーム**: 全 `<label>` に `htmlFor`、全入力に `id` を対応付け。ラジオグループは `<fieldset>/<legend>` で囲む
+- **エラー・通知**: フォームエラーに `role="alert"`、CSVインポート結果に `role="status"`
+- **テーブル**: 全 `<th>` に `scope="col"`、空ヘッダーに `aria-label`
+- **ドロップダウンメニュー**: `aria-expanded`、`aria-haspopup`、`role="menu"`/`role="menuitem"`、Escape キーで閉じる
+- **Pagination**: `<nav aria-label="ページネーション">`、`aria-current="page"`、前へ/次へに `aria-label`
+- **コントラスト**: 低コントラストの `text-gray-300`/`text-gray-400`/`text-yellow-600` を修正済み
+- **キャンセルボタン**: ナビゲーション用途のため `<Link>` に統一（`<button>` ではなく）
+
 ### テストインフラ
 
 - **Vitest**（ユニットテスト）: `vitest.config.ts`（`src/**/*.test.ts` と `src/**/*.test.tsx` を対象）

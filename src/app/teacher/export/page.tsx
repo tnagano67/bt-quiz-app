@@ -63,8 +63,8 @@ export default function ExportPage() {
       <h2 className="text-lg font-bold text-gray-800">成績エクスポート</h2>
 
       {/* エクスポート種別 */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4">
-        <p className="mb-3 text-sm font-bold text-gray-700">エクスポート種別</p>
+      <fieldset className="rounded-xl border border-gray-200 bg-white p-4">
+        <legend className="mb-3 text-sm font-bold text-gray-700">エクスポート種別</legend>
         <div className="flex gap-4">
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input
@@ -89,15 +89,16 @@ export default function ExportPage() {
             受験記録詳細
           </label>
         </div>
-      </div>
+      </fieldset>
 
       {/* フィルター */}
       <div className="rounded-xl border border-gray-200 bg-white p-4">
         <p className="mb-3 text-sm font-bold text-gray-700">フィルター</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
-            <label className="mb-1 block text-xs text-gray-600">学年</label>
+            <label htmlFor="export-year" className="mb-1 block text-xs text-gray-600">学年</label>
             <select
+              id="export-year"
               value={year}
               onChange={(e) => setYear(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
@@ -111,8 +112,9 @@ export default function ExportPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-gray-600">組</label>
+            <label htmlFor="export-class" className="mb-1 block text-xs text-gray-600">組</label>
             <select
+              id="export-class"
               value={cls}
               onChange={(e) => setCls(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
@@ -126,10 +128,11 @@ export default function ExportPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-gray-600">
+            <label htmlFor="export-grade-from" className="mb-1 block text-xs text-gray-600">
               グレード（から）
             </label>
             <select
+              id="export-grade-from"
               value={gradeFrom}
               onChange={(e) => setGradeFrom(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
@@ -143,10 +146,11 @@ export default function ExportPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-gray-600">
+            <label htmlFor="export-grade-to" className="mb-1 block text-xs text-gray-600">
               グレード（まで）
             </label>
             <select
+              id="export-grade-to"
               value={gradeTo}
               onChange={(e) => setGradeTo(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
@@ -165,10 +169,11 @@ export default function ExportPage() {
         {exportType === "records" && (
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div>
-              <label className="mb-1 block text-xs text-gray-600">
+              <label htmlFor="export-date-from" className="mb-1 block text-xs text-gray-600">
                 受験日（から）
               </label>
               <input
+                id="export-date-from"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
@@ -176,10 +181,11 @@ export default function ExportPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-gray-600">
+              <label htmlFor="export-date-to" className="mb-1 block text-xs text-gray-600">
                 受験日（まで）
               </label>
               <input
+                id="export-date-to"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}

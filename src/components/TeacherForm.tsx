@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createTeacher } from "@/app/teacher/teachers/actions";
 
 export default function TeacherForm() {
@@ -43,7 +44,7 @@ export default function TeacherForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
           {error}
         </div>
       )}
@@ -51,10 +52,11 @@ export default function TeacherForm() {
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
+            <label htmlFor="teacher-email" className="mb-1 block text-xs font-medium text-gray-600">
               メールアドレス
             </label>
             <input
+              id="teacher-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -65,10 +67,11 @@ export default function TeacherForm() {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
+            <label htmlFor="teacher-name" className="mb-1 block text-xs font-medium text-gray-600">
               氏名
             </label>
             <input
+              id="teacher-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -87,13 +90,12 @@ export default function TeacherForm() {
         >
           {submitting ? "登録中..." : "登録する"}
         </button>
-        <button
-          type="button"
-          onClick={() => router.push("/teacher/teachers")}
+        <Link
+          href="/teacher/teachers"
           className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
         >
           キャンセル
-        </button>
+        </Link>
       </div>
     </form>
   );

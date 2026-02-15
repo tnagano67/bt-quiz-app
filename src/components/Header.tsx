@@ -28,13 +28,14 @@ export default function Header() {
           BT管理システム
         </h1>
         <button
+          type="button"
           onClick={handleLogout}
           className="text-xs text-gray-500 hover:text-gray-700 sm:text-sm"
         >
           ログアウト
         </button>
       </div>
-      <nav className="mx-auto flex max-w-3xl px-4">
+      <nav aria-label="メインナビゲーション" className="mx-auto flex max-w-3xl px-4">
         {navItems.map(({ href, label }) => (
           <Link
             key={href}

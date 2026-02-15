@@ -45,10 +45,10 @@ export default async function TeacherTeachersPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs text-gray-500">
-              <th className="px-3 py-2 font-medium">氏名</th>
-              <th className="px-3 py-2 font-medium">メール</th>
-              <th className="px-3 py-2 font-medium">登録日</th>
-              <th className="px-3 py-2 font-medium"></th>
+              <th scope="col" className="px-3 py-2 font-medium">氏名</th>
+              <th scope="col" className="px-3 py-2 font-medium">メール</th>
+              <th scope="col" className="px-3 py-2 font-medium">登録日</th>
+              <th scope="col" className="px-3 py-2 font-medium" aria-label="操作"></th>
             </tr>
           </thead>
           <tbody>

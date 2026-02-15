@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   createQuestion,
   updateQuestion,
@@ -88,7 +89,7 @@ export default function QuestionForm({ mode, defaultValues }: Props) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
           {error}
         </div>
       )}
@@ -96,10 +97,11 @@ export default function QuestionForm({ mode, defaultValues }: Props) {
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
+            <label htmlFor="question-id" className="mb-1 block text-xs font-medium text-gray-600">
               問題ID
             </label>
             <input
+              id="question-id"
               type="number"
               value={questionId}
               onChange={(e) => setQuestionId(e.target.value)}
@@ -111,10 +113,11 @@ export default function QuestionForm({ mode, defaultValues }: Props) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
+            <label htmlFor="question-text" className="mb-1 block text-xs font-medium text-gray-600">
               問題文
             </label>
             <textarea
+              id="question-text"
               value={questionText}
               onChange={(e) => setQuestionText(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800"
@@ -131,10 +134,11 @@ export default function QuestionForm({ mode, defaultValues }: Props) {
               { label: "選択肢4", value: choice4, setter: setChoice4, num: 4 },
             ].map(({ label, value, setter, num }) => (
               <div key={num}>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
+                <label htmlFor={`choice-${num}`} className="mb-1 block text-xs font-medium text-gray-600">
                   {label}
                 </label>
                 <input
+                  id={`choice-${num}`}
                   type="text"
                   value={value}
                   onChange={(e) => setter(e.target.value)}
@@ -145,10 +149,10 @@ export default function QuestionForm({ mode, defaultValues }: Props) {
             ))}
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
+          <fieldset>
+            <legend className="mb-1 text-xs font-medium text-gray-600">
               正解
-            </label>
+            </legend>
             <div className="flex gap-4">
               {[1, 2, 3, 4].map((n) => (
                 <label key={n} className="flex items-center gap-1 text-sm text-gray-700">
@@ -164,7 +168,7 @@ export default function QuestionForm({ mode, defaultValues }: Props) {
                 </label>
               ))}
             </div>
-          </div>
+          </fieldset>
         </div>
       </div>
 
@@ -180,13 +184,12 @@ export default function QuestionForm({ mode, defaultValues }: Props) {
               ? "追加する"
               : "更新する"}
         </button>
-        <button
-          type="button"
-          onClick={() => router.push("/teacher/questions")}
+        <Link
+          href="/teacher/questions"
           className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
         >
           キャンセル
-        </button>
+        </Link>
       </div>
     </form>
   );

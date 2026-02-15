@@ -59,10 +59,11 @@ export default function Pagination({
     "border-gray-300 text-gray-700 hover:bg-gray-100";
 
   return (
-    <div className="flex items-center justify-center gap-1.5">
+    <nav aria-label="ページネーション" className="flex items-center justify-center gap-1.5">
       <button
         onClick={() => navigate(currentPage - 1)}
         disabled={currentPage <= 1}
+        aria-label="前のページへ"
         className={`${btnBase} ${btnNav}`}
       >
         前へ
@@ -71,6 +72,7 @@ export default function Pagination({
         page === "ellipsis" ? (
           <span
             key={`ellipsis-${i}`}
+            aria-hidden="true"
             className="px-1.5 text-sm text-gray-400"
           >
             …
@@ -79,6 +81,8 @@ export default function Pagination({
           <button
             key={page}
             onClick={() => navigate(page)}
+            aria-current={page === currentPage ? "page" : undefined}
+            aria-label={`ページ ${page}`}
             className={`${btnBase} ${page === currentPage ? btnActive : btnInactive}`}
           >
             {page}
@@ -88,10 +92,11 @@ export default function Pagination({
       <button
         onClick={() => navigate(currentPage + 1)}
         disabled={currentPage >= totalPages}
+        aria-label="次のページへ"
         className={`${btnBase} ${btnNav}`}
       >
         次へ
       </button>
-    </div>
+    </nav>
   );
 }

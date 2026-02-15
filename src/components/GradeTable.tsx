@@ -30,13 +30,13 @@ export default function GradeTable({ grades }: Props) {
       <table className="w-full text-left text-sm">
         <thead className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500">
           <tr>
-            <th className="px-3 py-2 font-medium">表示順</th>
-            <th className="px-3 py-2 font-medium">グレード名</th>
-            <th className="px-3 py-2 font-medium">問題ID範囲</th>
-            <th className="px-3 py-2 font-medium">出題数</th>
-            <th className="px-3 py-2 font-medium">合格点</th>
-            <th className="px-3 py-2 font-medium">必要連続日数</th>
-            <th className="px-3 py-2 font-medium">操作</th>
+            <th scope="col" className="px-3 py-2 font-medium">表示順</th>
+            <th scope="col" className="px-3 py-2 font-medium">グレード名</th>
+            <th scope="col" className="px-3 py-2 font-medium">問題ID範囲</th>
+            <th scope="col" className="px-3 py-2 font-medium">出題数</th>
+            <th scope="col" className="px-3 py-2 font-medium">合格点</th>
+            <th scope="col" className="px-3 py-2 font-medium">必要連続日数</th>
+            <th scope="col" className="px-3 py-2 font-medium">操作</th>
           </tr>
         </thead>
         <tbody>

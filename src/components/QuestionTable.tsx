@@ -30,14 +30,14 @@ export default function QuestionTable({ questions }: Props) {
       <table className="w-full text-left text-sm">
         <thead className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500">
           <tr>
-            <th className="px-3 py-2 font-medium">ID</th>
-            <th className="px-3 py-2 font-medium">問題文</th>
-            <th className="px-3 py-2 font-medium">選択肢1</th>
-            <th className="px-3 py-2 font-medium">選択肢2</th>
-            <th className="px-3 py-2 font-medium">選択肢3</th>
-            <th className="px-3 py-2 font-medium">選択肢4</th>
-            <th className="px-3 py-2 font-medium">正解</th>
-            <th className="px-3 py-2 font-medium">操作</th>
+            <th scope="col" className="px-3 py-2 font-medium">ID</th>
+            <th scope="col" className="px-3 py-2 font-medium">問題文</th>
+            <th scope="col" className="px-3 py-2 font-medium">選択肢1</th>
+            <th scope="col" className="px-3 py-2 font-medium">選択肢2</th>
+            <th scope="col" className="px-3 py-2 font-medium">選択肢3</th>
+            <th scope="col" className="px-3 py-2 font-medium">選択肢4</th>
+            <th scope="col" className="px-3 py-2 font-medium">正解</th>
+            <th scope="col" className="px-3 py-2 font-medium">操作</th>
           </tr>
         </thead>
         <tbody>

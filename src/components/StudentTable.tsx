@@ -26,27 +26,28 @@ export default function StudentTable({
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
               学年
             </th>
-            <th className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
               組
             </th>
-            <th className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
               番号
             </th>
-            <th className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
               氏名
             </th>
-            <th className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
               グレード
             </th>
-            <th className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
               最終挑戦日
             </th>
             {recentDates.map((date) => (
               <th
                 key={date}
+                scope="col"
                 className="whitespace-nowrap px-3 py-2 text-center text-xs font-medium text-gray-600"
               >
                 {formatDateShort(date)}
@@ -98,14 +99,14 @@ export default function StudentTable({
                             score >= 80
                               ? "text-green-600"
                               : score >= 60
-                                ? "text-yellow-600"
+                                ? "text-yellow-700"
                                 : "text-red-600"
                           }`}
                         >
                           {score}
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-300">-</span>
+                        <span className="text-xs text-gray-500">-</span>
                       )}
                     </td>
                   );

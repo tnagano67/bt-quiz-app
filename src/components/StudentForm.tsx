@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createStudent } from "@/app/teacher/students/actions";
 
 export default function StudentForm() {
@@ -65,7 +66,7 @@ export default function StudentForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
           {error}
         </div>
       )}
@@ -73,10 +74,11 @@ export default function StudentForm() {
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
+            <label htmlFor="student-email" className="mb-1 block text-xs font-medium text-gray-600">
               メールアドレス
             </label>
             <input
+              id="student-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -88,10 +90,11 @@ export default function StudentForm() {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
+              <label htmlFor="student-year" className="mb-1 block text-xs font-medium text-gray-600">
                 学年
               </label>
               <select
+                id="student-year"
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800"
@@ -105,10 +108,11 @@ export default function StudentForm() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
+              <label htmlFor="student-class" className="mb-1 block text-xs font-medium text-gray-600">
                 組
               </label>
               <select
+                id="student-class"
                 value={cls}
                 onChange={(e) => setCls(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800"
@@ -124,10 +128,11 @@ export default function StudentForm() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
+              <label htmlFor="student-number" className="mb-1 block text-xs font-medium text-gray-600">
                 番号
               </label>
               <input
+                id="student-number"
                 type="number"
                 value={number}
                 onChange={(e) => setNumber(e.target.value)}
@@ -139,10 +144,11 @@ export default function StudentForm() {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
+            <label htmlFor="student-name" className="mb-1 block text-xs font-medium text-gray-600">
               氏名
             </label>
             <input
+              id="student-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -161,13 +167,12 @@ export default function StudentForm() {
         >
           {submitting ? "登録中..." : "登録する"}
         </button>
-        <button
-          type="button"
-          onClick={() => router.push("/teacher/students")}
+        <Link
+          href="/teacher/students"
           className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
         >
           キャンセル
-        </button>
+        </Link>
       </div>
     </form>
   );

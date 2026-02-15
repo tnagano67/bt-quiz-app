@@ -29,10 +29,11 @@ export default function StudentFilter({ grades }: Props) {
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label htmlFor="filter-year" className="mb-1 block text-xs font-medium text-gray-600">
             学年
           </label>
           <select
+            id="filter-year"
             value={searchParams.get("year") ?? ""}
             onChange={(e) => updateParams("year", e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
@@ -47,10 +48,11 @@ export default function StudentFilter({ grades }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label htmlFor="filter-class" className="mb-1 block text-xs font-medium text-gray-600">
             組
           </label>
           <select
+            id="filter-class"
             value={searchParams.get("class") ?? ""}
             onChange={(e) => updateParams("class", e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
@@ -65,10 +67,11 @@ export default function StudentFilter({ grades }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label htmlFor="filter-grade-from" className="mb-1 block text-xs font-medium text-gray-600">
             グレード（開始）
           </label>
           <select
+            id="filter-grade-from"
             value={searchParams.get("gradeFrom") ?? ""}
             onChange={(e) => updateParams("gradeFrom", e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
@@ -83,10 +86,11 @@ export default function StudentFilter({ grades }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label htmlFor="filter-grade-to" className="mb-1 block text-xs font-medium text-gray-600">
             グレード（終了）
           </label>
           <select
+            id="filter-grade-to"
             value={searchParams.get("gradeTo") ?? ""}
             onChange={(e) => updateParams("gradeTo", e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
@@ -101,10 +105,11 @@ export default function StudentFilter({ grades }: Props) {
         </div>
 
         <div className="col-span-2">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label htmlFor="filter-name" className="mb-1 block text-xs font-medium text-gray-600">
             氏名
           </label>
           <input
+            id="filter-name"
             type="text"
             placeholder="部分一致で検索"
             defaultValue={searchParams.get("name") ?? ""}

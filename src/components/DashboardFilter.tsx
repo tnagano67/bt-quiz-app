@@ -24,10 +24,11 @@ export default function DashboardFilter() {
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label htmlFor="dashboard-year" className="mb-1 block text-xs font-medium text-gray-600">
             学年
           </label>
           <select
+            id="dashboard-year"
             value={searchParams.get("year") ?? ""}
             onChange={(e) => updateParams("year", e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
@@ -42,10 +43,11 @@ export default function DashboardFilter() {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label htmlFor="dashboard-class" className="mb-1 block text-xs font-medium text-gray-600">
             組
           </label>
           <select
+            id="dashboard-class"
             value={searchParams.get("class") ?? ""}
             onChange={(e) => updateParams("class", e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"

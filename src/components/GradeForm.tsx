@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createGrade, updateGrade } from "@/app/teacher/grades/actions";
 import type { GradeDefinition } from "@/lib/types/database";
 
@@ -105,7 +106,7 @@ export default function GradeForm({ mode, defaultValues }: Props) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
           {error}
         </div>
       )}
@@ -113,10 +114,11 @@ export default function GradeForm({ mode, defaultValues }: Props) {
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
+            <label htmlFor="grade-name" className="mb-1 block text-xs font-medium text-gray-600">
               グレード名
             </label>
             <input
+              id="grade-name"
               type="text"
               value={gradeName}
               onChange={(e) => setGradeName(e.target.value)}
@@ -134,10 +136,11 @@ export default function GradeForm({ mode, defaultValues }: Props) {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
+              <label htmlFor="display-order" className="mb-1 block text-xs font-medium text-gray-600">
                 表示順
               </label>
               <input
+                id="display-order"
                 type="number"
                 value={displayOrder}
                 onChange={(e) => setDisplayOrder(e.target.value)}
@@ -148,10 +151,11 @@ export default function GradeForm({ mode, defaultValues }: Props) {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
+              <label htmlFor="required-days" className="mb-1 block text-xs font-medium text-gray-600">
                 必要連続日数
               </label>
               <input
+                id="required-days"
                 type="number"
                 value={requiredDays}
                 onChange={(e) => setRequiredDays(e.target.value)}
@@ -164,10 +168,11 @@ export default function GradeForm({ mode, defaultValues }: Props) {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
+              <label htmlFor="start-id" className="mb-1 block text-xs font-medium text-gray-600">
                 問題ID（開始）
               </label>
               <input
+                id="start-id"
                 type="number"
                 value={startId}
                 onChange={(e) => setStartId(e.target.value)}
@@ -178,10 +183,11 @@ export default function GradeForm({ mode, defaultValues }: Props) {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
+              <label htmlFor="end-id" className="mb-1 block text-xs font-medium text-gray-600">
                 問題ID（終了）
               </label>
               <input
+                id="end-id"
                 type="number"
                 value={endId}
                 onChange={(e) => setEndId(e.target.value)}
@@ -194,10 +200,11 @@ export default function GradeForm({ mode, defaultValues }: Props) {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
+              <label htmlFor="num-questions" className="mb-1 block text-xs font-medium text-gray-600">
                 出題数
               </label>
               <input
+                id="num-questions"
                 type="number"
                 value={numQuestions}
                 onChange={(e) => setNumQuestions(e.target.value)}
@@ -208,10 +215,11 @@ export default function GradeForm({ mode, defaultValues }: Props) {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
+              <label htmlFor="pass-score" className="mb-1 block text-xs font-medium text-gray-600">
                 合格点
               </label>
               <input
+                id="pass-score"
                 type="number"
                 value={passScore}
                 onChange={(e) => setPassScore(e.target.value)}
@@ -237,13 +245,12 @@ export default function GradeForm({ mode, defaultValues }: Props) {
               ? "追加する"
               : "更新する"}
         </button>
-        <button
-          type="button"
-          onClick={() => router.push("/teacher/grades")}
+        <Link
+          href="/teacher/grades"
           className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
         >
           キャンセル
-        </button>
+        </Link>
       </div>
     </form>
   );

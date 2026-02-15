@@ -220,11 +220,23 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
 - **生徒テスト（6件）**: ダッシュボード表示・ページ遷移、小テスト受験フロー（`beforeEach` で `last_challenge_date` リセット）・未回答制御、履歴表示
 - **E2Eテスト総数**: 18件（setup 1 + teacher 11 + student 6）
 
+### Phase 13: アクセシビリティ改善（WCAG AA 準拠） ✅
+
+- **スキップナビゲーション**: 生徒/教員レイアウトに `sr-only focus:not-sr-only` スキップリンク追加、`<main id="main-content">` 付与
+- **ナビゲーション aria-label**: `Header` / `TeacherHeader` の `<nav>` に `aria-label="メインナビゲーション"` 追加
+- **フォームの label-input 関連付け**: 全7フォーム（`QuestionForm`、`StudentForm`、`GradeForm`、`TeacherForm`、`StudentFilter`、`DashboardFilter`、`export/page.tsx`）で `htmlFor`/`id` ペアを追加。正解ラジオ・エクスポート種別ラジオを `<fieldset>/<legend>` で囲む
+- **エラー・通知の aria-live**: フォーム4種のエラーに `role="alert"`、CSVインポート3種のパースエラーに `role="alert"`・結果に `role="status"`、クイズの saveError に `role="alert"`
+- **テーブル改善**: 全テーブル（`StudentTable`、`QuestionTable`、`GradeTable`、`teacher/teachers/page.tsx`、CSVインポート3種のプレビュー）の `<th>` に `scope="col"` 追加。空 `<th>` に `aria-label="操作"`
+- **カラーコントラスト修正**: `text-gray-300` → `text-gray-500`、`text-yellow-600` → `text-yellow-700`、`text-gray-400` → `text-gray-500`（ヒントテキスト・閉じるボタン）
+- **ドロップダウンメニュー ARIA + キーボード対応**: CSVインポート3種のトリガーに `aria-expanded`/`aria-haspopup`、メニューに `role="menu"`/`role="menuitem"`、Escape キーで閉じる
+- **Pagination 改善**: `<nav aria-label="ページネーション">` でラップ、`aria-current="page"`、前へ/次へに `aria-label`、省略記号に `aria-hidden="true"`
+- **キャンセルボタンの Link 化**: 4フォームの `<button onClick={router.push}>` → `<Link href>`（セマンティクス改善）
+- **その他**: Google SVG に `aria-hidden="true"`、ログアウトボタンに `type="button"` 明示
+
 ---
 
 ## 今後の候補（未着手）
 
 優先度や実装順は未定。必要に応じて選択。
 
-- **アクセシビリティ改善**: キーボード操作、スクリーンリーダー対応
 - **パフォーマンス最適化**: ISR/キャッシュ戦略、画像最適化
