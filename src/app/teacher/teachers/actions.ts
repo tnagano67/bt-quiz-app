@@ -116,37 +116,26 @@ export async function importTeachers(
     return { success: errors.length === 0, inserted: 0, skipped: 0, errors };
   }
 
-  // 既存レコードを一括取得
-  const emails = validRows.map((r) => r.email);
-  const { data: existingRows } = await supabase
-    .from("teachers")
-    .select("email")
-    .in("email", emails);
-
-  const existingEmails = new Set(
-    (existingRows ?? []).map((r) => r.email)
-  );
-
-  const toInsert = validRows
-    .filter((r) => !existingEmails.has(r.email))
-    .map((r) => ({
-      email: r.email,
-      name: r.name,
-    }));
-
-  const skipped = validRows.filter((r) => existingEmails.has(r.email)).length;
+  const toInsert = validRows.map((r) => ({
+    email: r.email,
+    name: r.name,
+  }));
 
   let inserted = 0;
+  let skipped = 0;
 
   if (toInsert.length > 0) {
-    const { error: insertError } = await supabase
+    // upsert + ignoreDuplicates で既存メールは安全にスキップ
+    const { data: upserted, error: upsertError } = await supabase
       .from("teachers")
-      .insert(toInsert);
+      .upsert(toInsert, { onConflict: "email", ignoreDuplicates: true })
+      .select("id");
 
-    if (insertError) {
-      errors.push(`一括挿入に失敗しました: ${insertError.message}`);
+    if (upsertError) {
+      errors.push(`一括挿入に失敗しました: ${upsertError.message}`);
     } else {
-      inserted = toInsert.length;
+      inserted = upserted?.length ?? 0;
+      skipped = toInsert.length - inserted;
     }
   }
 
