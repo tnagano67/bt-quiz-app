@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import type { Teacher, Student, QuizRecord } from "@/lib/types/database";
-import { getTodayJST, getRecentDates, formatDateShort } from "@/lib/date-utils";
+import { getTodayJST, getRecentDates, formatDateShort, toJSTDateString } from "@/lib/date-utils";
 import GradeDistributionChart from "@/components/GradeDistributionChart";
 import PassRateTrendChart from "@/components/PassRateTrendChart";
 
@@ -53,7 +53,7 @@ export default async function TeacherHomePage() {
   const totalStudents = students.length;
   const todayJST = getTodayJST();
   const todayRecords = recentRecords.filter(
-    (r) => r.taken_at.slice(0, 10) === todayJST
+    (r) => toJSTDateString(r.taken_at) === todayJST
   );
   const todayQuizCount = todayRecords.length;
   const passRate =
@@ -79,14 +79,14 @@ export default async function TeacherHomePage() {
   }
   const gradeDistribution = grades.map((g) => ({
     gradeName: g.grade_name as string,
-    count: gradeCountMap.get(g.id as string) ?? 0,
+    count: gradeCountMap.get(g.grade_name as string) ?? 0,
   }));
 
   // 合格率推移データ（古い順）
   const recentDates = getRecentDates(30).reverse();
   const recordsByDate = new Map<string, { total: number; passed: number }>();
   for (const r of recentRecords) {
-    const date = r.taken_at.slice(0, 10);
+    const date = toJSTDateString(r.taken_at);
     const entry = recordsByDate.get(date) ?? { total: 0, passed: 0 };
     entry.total++;
     if (r.passed) entry.passed++;
@@ -104,7 +104,7 @@ export default async function TeacherHomePage() {
   const studentMap = new Map(students.map((s) => [s.id, s]));
   // グレード名マップ
   const gradeNameMap = new Map(
-    grades.map((g) => [g.id as string, g.grade_name as string])
+    grades.map((g) => [g.grade_name as string, g.grade_name as string])
   );
 
   return (

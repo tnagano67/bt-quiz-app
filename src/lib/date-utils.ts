@@ -23,6 +23,12 @@ export function formatDateShort(dateStr: string): string {
   return `${Number(month)}/${Number(day)}`;
 }
 
+/** UTC タイムスタンプ文字列を JST の日付文字列 (YYYY-MM-DD) に変換 */
+export function toJSTDateString(timestamp: string): string {
+  const date = toZonedTime(new Date(timestamp), TZ);
+  return format(date, "yyyy-MM-dd");
+}
+
 /** 本日受験済みかどうか */
 export function isTakenToday(lastChallengeDate: string | null): boolean {
   if (!lastChallengeDate) return false;
