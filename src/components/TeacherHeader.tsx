@@ -11,6 +11,7 @@ const navItems = [
   { href: "/teacher/questions", label: "問題管理" },
   { href: "/teacher/grades", label: "グレード管理" },
   { href: "/teacher/export", label: "エクスポート" },
+  { href: "/teacher/teachers", label: "教員管理" },
 ];
 
 export default function TeacherHeader() {
