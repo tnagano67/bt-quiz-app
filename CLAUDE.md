@@ -117,3 +117,12 @@ Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` と `/te
 ### データベース（Supabase）
 
 テーブル: `students`、`teachers`、`grade_definitions`、`questions`、`quiz_records` — すべて RLS 有効。メールアドレスで Google アカウントと紐付け。RLS ポリシーは `auth.jwt() ->> 'email'` でメール照合。教員は全テーブルを閲覧・編集可能（`teachers` テーブルの存在チェック）。スキーマの SQL 定義は `PLAN.md` を参照。
+
+### Supabase クエリの注意点
+
+- **行数制限**: Supabase（PostgREST）はデフォルトで最大1000行しか返さない。`.limit()` を設定してもサーバー側の `max-rows` 設定で制限される。大量のレコードを取得する場合は `.range()` によるページネーションが必要（参考: `teacher/page.tsx` の `fetchAllRecentRecords()`）。
+- **TIMESTAMPTZ フィルター**: `taken_at` 等の TIMESTAMPTZ カラムに対する `.gte()` / `.lte()` フィルターでは、日付文字列にタイムゾーンを明示する必要がある（例: `${date}T00:00:00+09:00`）。タイムゾーンなしの `YYYY-MM-DD` 文字列では正しくフィルタされない。
+
+### シードスクリプト
+
+- `scripts/seed-quiz-records.sql` — ダミー受験記録の生成スクリプト（Supabase SQL Editor で実行）。過去30日分のデータを全生徒に対して約70%の参加率で生成。既存の `quiz_records` を全削除してから挿入する。本番環境では使用しないこと。

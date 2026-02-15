@@ -162,6 +162,15 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
 - 合格率推移折れ線グラフ（`PassRateTrendChart`、Chart.js、30日分）
 - 最近の受験活動テーブル（直近10件、生徒名・グレード・スコア・合否・日時）
 - 4つのSupabaseクエリを `Promise.all` で並列取得
+- ダミーデータ生成用シードスクリプト（`scripts/seed-quiz-records.sql`）
+
+### Phase 10.1: ダッシュボードバグ修正 ✅
+
+- **合格率推移チャートにデータが表示されない問題を修正**:
+  - `.gte("taken_at", ...)` フィルターにタイムゾーン（`T00:00:00+09:00`）を付与
+  - Supabase の PostgREST 1000行制限を `.range()` ページネーションで回避（`fetchAllRecentRecords()`）
+  - 統計・チャート用クエリは必要最小限のカラム（`taken_at`, `passed`, `score`）のみ取得
+- **TeacherHeader の「ホーム」リンクが薄い問題を修正**: 三項演算子の優先順位バグを括弧で修正
 
 ---
 
