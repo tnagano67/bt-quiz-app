@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { importTeachers } from "@/app/teacher/teachers/actions";
 
 type ParsedRow = {
@@ -56,6 +57,7 @@ function parseCsvLine(line: string): string[] {
 type Mode = "closed" | "menu" | "csv";
 
 export default function TeacherCsvImport() {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("closed");
   const [state, setState] = useState<ImportState>({ phase: "idle" });
   const [parseError, setParseError] = useState<string | null>(null);
@@ -146,6 +148,7 @@ export default function TeacherCsvImport() {
       skipped: result.skipped,
       errors: result.errors,
     });
+    router.refresh();
   }
 
   function handleReset() {
