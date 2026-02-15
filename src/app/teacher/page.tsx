@@ -5,24 +5,31 @@ import type { Teacher, Student, QuizRecord } from "@/lib/types/database";
 import { getTodayJST, getRecentDates, formatDateShort, toJSTDateString } from "@/lib/date-utils";
 import GradeDistributionChart from "@/components/GradeDistributionChart";
 import PassRateTrendChart from "@/components/PassRateTrendChart";
+import DashboardFilter from "@/components/DashboardFilter";
 
 type RecentRecord = Pick<QuizRecord, "taken_at" | "passed" | "score">;
 
 /** Supabase の 1000 行制限を回避してページネーションで全件取得 */
 async function fetchAllRecentRecords(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  sinceDate: string
+  sinceDate: string,
+  studentIds?: string[]
 ): Promise<RecentRecord[]> {
   const PAGE_SIZE = 1000;
   const allRecords: RecentRecord[] = [];
   let from = 0;
 
   while (true) {
-    const { data } = await supabase
+    let query = supabase
       .from("quiz_records")
       .select("taken_at, passed, score")
-      .gte("taken_at", `${sinceDate}T00:00:00+09:00`)
-      .range(from, from + PAGE_SIZE - 1);
+      .gte("taken_at", `${sinceDate}T00:00:00+09:00`);
+
+    if (studentIds) {
+      query = query.in("student_id", studentIds);
+    }
+
+    const { data } = await query.range(from, from + PAGE_SIZE - 1);
 
     if (!data || data.length === 0) break;
     allRecords.push(...(data as RecentRecord[]));
@@ -33,19 +40,26 @@ async function fetchAllRecentRecords(
   return allRecords;
 }
 
-/** Supabase の 1000 行制限を回避して全生徒を取得 */
+/** Supabase の 1000 行制限を回避して全生徒を取得（フィルター対応） */
 async function fetchAllStudents(
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  filters: { year?: number; classNum?: number }
 ): Promise<Student[]> {
   const PAGE_SIZE = 1000;
   const allStudents: Student[] = [];
   let from = 0;
 
   while (true) {
-    const { data } = await supabase
-      .from("students")
-      .select("*")
-      .range(from, from + PAGE_SIZE - 1);
+    let query = supabase.from("students").select("*");
+
+    if (filters.year) {
+      query = query.eq("year", filters.year);
+    }
+    if (filters.classNum) {
+      query = query.eq("class", filters.classNum);
+    }
+
+    const { data } = await query.range(from, from + PAGE_SIZE - 1);
 
     if (!data || data.length === 0) break;
     allStudents.push(...(data as Student[]));
@@ -56,7 +70,15 @@ async function fetchAllStudents(
   return allStudents;
 }
 
-export default async function TeacherHomePage() {
+type Props = {
+  searchParams: Promise<{
+    year?: string;
+    class?: string;
+  }>;
+};
+
+export default async function TeacherHomePage({ searchParams }: Props) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -74,25 +96,43 @@ export default async function TeacherHomePage() {
 
   const typedTeacher = teacher as Teacher;
 
+  const yearFilter = params.year ? Number(params.year) : undefined;
+  const classFilter = params.class ? Number(params.class) : undefined;
+  const hasFilter = !!(yearFilter || classFilter);
+
   const sinceDate = getRecentDates(30).at(-1)!;
 
   // データ取得（並列）
-  const [students, gradesResult, recentRecords, latestRecordsResult] =
-    await Promise.all([
-      fetchAllStudents(supabase),
-      supabase
-        .from("grade_definitions")
-        .select("*")
-        .order("display_order", { ascending: true }),
-      fetchAllRecentRecords(supabase, sinceDate),
-      supabase
+  const [students, gradesResult] = await Promise.all([
+    fetchAllStudents(supabase, { year: yearFilter, classNum: classFilter }),
+    supabase
+      .from("grade_definitions")
+      .select("*")
+      .order("display_order", { ascending: true }),
+  ]);
+
+  const grades = gradesResult.data ?? [];
+
+  // フィルターがある場合は student_ids で quiz_records を絞り込む
+  const studentIds = hasFilter ? students.map((s) => s.id) : undefined;
+
+  const [recentRecords, latestRecordsResult] = await Promise.all([
+    fetchAllRecentRecords(supabase, sinceDate, studentIds),
+    (async () => {
+      let query = supabase
         .from("quiz_records")
         .select("*")
         .order("taken_at", { ascending: false })
-        .limit(10),
-    ]);
+        .limit(10);
 
-  const grades = gradesResult.data ?? [];
+      if (studentIds) {
+        query = query.in("student_id", studentIds);
+      }
+
+      return query;
+    })(),
+  ]);
+
   const latestRecords = (latestRecordsResult.data ?? []) as QuizRecord[];
 
   // 概要統計
@@ -155,6 +195,16 @@ export default async function TeacherHomePage() {
     grades.map((g) => [g.grade_name as string, g.grade_name as string])
   );
 
+  // フィルターラベル
+  const filterLabel = hasFilter
+    ? [
+        yearFilter ? `${yearFilter}年` : null,
+        classFilter ? `${classFilter}組` : null,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : null;
+
   return (
     <div className="flex flex-col gap-6">
       {/* ウェルカムメッセージ */}
@@ -166,6 +216,15 @@ export default async function TeacherHomePage() {
           BT管理システムの教員ダッシュボードへようこそ。
         </p>
       </div>
+
+      {/* フィルター */}
+      <DashboardFilter />
+
+      {filterLabel && (
+        <p className="text-xs text-gray-500">
+          フィルター: {filterLabel}（{totalStudents}名）
+        </p>
+      )}
 
       {/* 概要統計カード */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
