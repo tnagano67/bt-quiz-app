@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import TeacherDeleteButton from "@/components/TeacherDeleteButton";
+import TeacherCsvImport from "@/components/TeacherCsvImport";
 
 export default async function TeacherTeachersPage() {
   const supabase = await createClient();
@@ -36,12 +36,7 @@ export default async function TeacherTeachersPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-800">教員管理</h2>
-        <Link
-          href="/teacher/teachers/new"
-          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
-        >
-          新規登録
-        </Link>
+        <TeacherCsvImport />
       </div>
 
       <p className="text-xs text-gray-500">{teachers.length}件の教員</p>

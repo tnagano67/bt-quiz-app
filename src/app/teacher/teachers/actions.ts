@@ -69,6 +69,96 @@ export async function createTeacher(input: {
   return { success: true };
 }
 
+type ImportResult = {
+  success: boolean;
+  message?: string;
+  inserted: number;
+  skipped: number;
+  errors: string[];
+};
+
+export async function importTeachers(
+  rows: { email: string; name: string }[]
+): Promise<ImportResult> {
+  const { error } = await verifyTeacher();
+  if (error) {
+    return {
+      success: false,
+      message: error.message,
+      inserted: 0,
+      skipped: 0,
+      errors: [],
+    };
+  }
+
+  const supabase = await createClient();
+  const errors: string[] = [];
+
+  // バリデーション
+  const validRows: { email: string; name: string }[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 1;
+
+    if (!row.email.trim()) {
+      errors.push(`行${rowNum}: メールアドレスが空です`);
+      continue;
+    }
+    if (!row.name.trim()) {
+      errors.push(`行${rowNum}: 氏名が空です`);
+      continue;
+    }
+    validRows.push(row);
+  }
+
+  if (validRows.length === 0) {
+    revalidatePath("/teacher/teachers");
+    return { success: errors.length === 0, inserted: 0, skipped: 0, errors };
+  }
+
+  // 既存レコードを一括取得
+  const emails = validRows.map((r) => r.email);
+  const { data: existingRows } = await supabase
+    .from("teachers")
+    .select("email")
+    .in("email", emails);
+
+  const existingEmails = new Set(
+    (existingRows ?? []).map((r) => r.email)
+  );
+
+  const toInsert = validRows
+    .filter((r) => !existingEmails.has(r.email))
+    .map((r) => ({
+      email: r.email,
+      name: r.name,
+    }));
+
+  const skipped = validRows.filter((r) => existingEmails.has(r.email)).length;
+
+  let inserted = 0;
+
+  if (toInsert.length > 0) {
+    const { error: insertError } = await supabase
+      .from("teachers")
+      .insert(toInsert);
+
+    if (insertError) {
+      errors.push(`一括挿入に失敗しました: ${insertError.message}`);
+    } else {
+      inserted = toInsert.length;
+    }
+  }
+
+  revalidatePath("/teacher/teachers");
+  return {
+    success: errors.length === 0,
+    inserted,
+    skipped,
+    errors,
+  };
+}
+
 export async function deleteTeacher(id: string): Promise<Result> {
   const { error, email } = await verifyTeacher();
   if (error) return error;
