@@ -210,6 +210,16 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
 - **モック技法**: 同一テーブルの select を連続で異なるレスポンスにする必要がある場合（`updateGrade`、`deleteTeacher`）、`from` のカスタム実装でコールカウントベースの分岐を使用
 - **テスト総数**: 134 → 177件（+43件）
 
+### Phase 12: E2Eテスト（Playwright）導入 ✅
+
+- **Playwright セットアップ**: `playwright.config.ts`、Chromium ブラウザ、`npm run test:e2e` / `test:e2e:ui` / `test:e2e:headed` スクリプト追加
+- **認証戦略**: Google OAuth はブラウザ自動化できないため、Supabase Admin API（`service_role` キー）でテストユーザー作成 → `signInWithPassword()` でセッション取得 → `sb-<ref>-auth-token` クッキーとして storageState に保存
+- **3プロジェクト構成**: `setup`（認証・シードデータ投入）→ `teacher`（教員テスト）/ `student`（生徒テスト）
+- **テストデータ管理**: `e2e/helpers/seed.ts` で `service_role` クライアントを使い、テストデータの upsert・クリーンアップを実施。テスト用問題（ID 9001〜9010）、一時データ（ID 9100〜）を使用
+- **教員テスト（10件）**: ダッシュボード表示・ナビ遷移、生徒一覧・新規登録、問題一覧・新規登録・CSVインポート、グレード一覧・新規登録、エクスポート件数確認・CSVダウンロード
+- **生徒テスト（6件）**: ダッシュボード表示・ページ遷移、小テスト受験フロー（`beforeEach` で `last_challenge_date` リセット）・未回答制御、履歴表示
+- **E2Eテスト総数**: 18件（setup 1 + teacher 11 + student 6）
+
 ---
 
 ## 今後の候補（未着手）

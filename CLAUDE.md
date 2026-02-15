@@ -18,6 +18,7 @@ BT管理システム — 教育機関向け小テスト・成績管理システ�
 - **date-fns** + date-fns-tz（Asia/Tokyo タイムゾーン対応）
 - **ESLint 9** flat config（`eslint.config.mjs`、`eslint-config-next/core-web-vitals` + `/typescript`）
 - **Vitest** でユニットテスト
+- **Playwright** でE2Eテスト
 - **Vercel** でデプロイ
 
 ## コマンド
@@ -30,9 +31,12 @@ npm run lint         # ESLint 実行
 npm run test         # Vitest テスト一度実行
 npm run test:watch   # Vitest ウォッチモード
 npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
+npm run test:e2e     # Playwright E2Eテスト実行
+npm run test:e2e:ui  # Playwright UIモード（ブラウザ付きデバッグ）
+npm run test:e2e:headed  # ブラウザ表示付きで実行
 ```
 
-テストファイルはソースファイルの隣に `*.test.ts`（または `*.test.tsx`）で配置（コロケーション方式）。テスト用モックユーティリティは `src/test-utils/` に配置。
+ユニットテストファイルはソースファイルの隣に `*.test.ts`（または `*.test.tsx`）で配置（コロケーション方式）。テスト用モックユーティリティは `src/test-utils/` に配置。E2Eテストは `e2e/` ディレクトリに配置。
 
 ## アーキテクチャ
 
@@ -109,6 +113,11 @@ Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` と `/te
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
+E2Eテスト実行時は追加で以下が必要:
+- `SUPABASE_SERVICE_ROLE_KEY`（Supabase ダッシュボード → Settings → API）
+- `E2E_TEACHER_EMAIL` / `E2E_TEACHER_PASSWORD`（テスト用教員アカウント）
+- `E2E_STUDENT_EMAIL` / `E2E_STUDENT_PASSWORD`（テスト用生徒アカウント）
+
 ### コアビジネスロジック
 
 - **小テスト送信フロー**: クライアント側で即時採点（`quiz-logic.ts`）→ 結果表示 → Server Action (`quiz/actions.ts`) でサーバー側再採点（`verifyScore()`）・DB保存。合否判定は `grade_definitions.pass_score` に基づく。
@@ -130,9 +139,16 @@ Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` と `/te
 
 ### テストインフラ
 
-- **Vitest** 設定: `vitest.config.ts`（`src/**/*.test.ts` と `src/**/*.test.tsx` を対象）
+- **Vitest**（ユニットテスト）: `vitest.config.ts`（`src/**/*.test.ts` と `src/**/*.test.tsx` を対象）
 - **Supabase モック**: `src/test-utils/supabase-mock.ts` — `createMockSupabase()` でチェーン可能なクエリビルダーモックを生成。テーブル・操作ごとのレスポンス設定、`setTableResponse()` による動的切替に対応。`vi.mock("@/lib/supabase/server", () => mockModule)` で利用。
-- **テスト対象**: lib モジュール（`quiz-logic`、`grade-logic`、`date-utils`、`csv-utils`、`validation`、`export-utils`）、Server Actions（`quiz/actions`、`questions/actions`、`students/actions`、`grades/actions`、`teachers/actions`、`export/actions`）
+- **ユニットテスト対象**: lib モジュール（`quiz-logic`、`grade-logic`、`date-utils`、`csv-utils`、`validation`、`export-utils`）、Server Actions（`quiz/actions`、`questions/actions`、`students/actions`、`grades/actions`、`teachers/actions`、`export/actions`）
+- **Playwright**（E2Eテスト）: `playwright.config.ts`、テストファイルは `e2e/` ディレクトリ
+  - 3プロジェクト構成: `setup`（認証・シードデータ）、`teacher`（教員テスト）、`student`（生徒テスト）
+  - 認証方式: Supabase Admin API でテストユーザー作成 → `signInWithPassword()` → storageState にクッキー保存（Google OAuth をバイパス）
+  - `e2e/helpers/seed.ts`: `service_role` キーでテストデータ投入・クリーンアップ
+  - `e2e/fixtures/test-data.ts`: テスト用定数（問題ID 9001〜9010、一時データは 9100〜）
+  - `e2e/global-setup.ts`: 認証セッション作成 + シードデータ投入（setup project として実行）
+  - E2Eテスト対象: 教員ダッシュボード・生徒/問題/グレード管理（CRUD）・CSVインポート・CSVエクスポート・生徒ダッシュボード・小テスト受験・履歴表示（全18テスト）
 
 ### シードスクリプト
 
