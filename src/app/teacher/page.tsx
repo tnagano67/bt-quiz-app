@@ -6,6 +6,33 @@ import { getTodayJST, getRecentDates, formatDateShort, toJSTDateString } from "@
 import GradeDistributionChart from "@/components/GradeDistributionChart";
 import PassRateTrendChart from "@/components/PassRateTrendChart";
 
+type RecentRecord = Pick<QuizRecord, "taken_at" | "passed" | "score">;
+
+/** Supabase の 1000 行制限を回避してページネーションで全件取得 */
+async function fetchAllRecentRecords(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  sinceDate: string
+): Promise<RecentRecord[]> {
+  const PAGE_SIZE = 1000;
+  const allRecords: RecentRecord[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data } = await supabase
+      .from("quiz_records")
+      .select("taken_at, passed, score")
+      .gte("taken_at", `${sinceDate}T00:00:00+09:00`)
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (!data || data.length === 0) break;
+    allRecords.push(...(data as RecentRecord[]));
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return allRecords;
+}
+
 export default async function TeacherHomePage() {
   const supabase = await createClient();
 
@@ -24,20 +51,17 @@ export default async function TeacherHomePage() {
 
   const typedTeacher = teacher as Teacher;
 
+  const sinceDate = getRecentDates(30).at(-1)!;
+
   // データ取得（並列）
-  const [studentsResult, gradesResult, recentRecordsResult, latestRecordsResult] =
+  const [studentsResult, gradesResult, recentRecords, latestRecordsResult] =
     await Promise.all([
       supabase.from("students").select("*"),
       supabase
         .from("grade_definitions")
         .select("*")
         .order("display_order", { ascending: true }),
-      supabase
-        .from("quiz_records")
-        .select("taken_at, passed, score, student_id, grade")
-        .gte("taken_at", `${getRecentDates(30).at(-1)!}T00:00:00+09:00`)
-        .order("taken_at", { ascending: false })
-        .limit(100000),
+      fetchAllRecentRecords(supabase, sinceDate),
       supabase
         .from("quiz_records")
         .select("*")
@@ -47,7 +71,6 @@ export default async function TeacherHomePage() {
 
   const students = (studentsResult.data ?? []) as Student[];
   const grades = gradesResult.data ?? [];
-  const recentRecords = (recentRecordsResult.data ?? []) as Pick<QuizRecord, "taken_at" | "passed" | "score" | "student_id" | "grade">[];
   const latestRecords = (latestRecordsResult.data ?? []) as QuizRecord[];
 
   // 概要統計
