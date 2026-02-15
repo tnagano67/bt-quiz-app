@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseCsvRows } from "./csv-utils";
+import { parseCsvRows, generateCsvText } from "./csv-utils";
 
 describe("parseCsvRows", () => {
   it("通常のCSV（1行）", () => {
@@ -87,5 +87,44 @@ describe("parseCsvRows", () => {
       "選択肢D",
       "1",
     ]);
+  });
+});
+
+describe("generateCsvText", () => {
+  it("通常の2D配列をCSVに変換", () => {
+    const result = generateCsvText([
+      ["名前", "年齢", "組"],
+      ["田中", "15", "A"],
+    ]);
+    expect(result).toBe("名前,年齢,組\r\n田中,15,A");
+  });
+
+  it("カンマを含むフィールドをクォートで囲む", () => {
+    const result = generateCsvText([["A, B", "C"]]);
+    expect(result).toBe('"A, B",C');
+  });
+
+  it("ダブルクォートをエスケープ", () => {
+    const result = generateCsvText([['引用"テスト"です']]);
+    expect(result).toBe('"引用""テスト""です"');
+  });
+
+  it("改行を含むフィールドをクォートで囲む", () => {
+    const result = generateCsvText([["行1\n行2", "OK"]]);
+    expect(result).toBe('"行1\n行2",OK');
+  });
+
+  it("null/undefined は空文字として扱う", () => {
+    const result = generateCsvText([[null, undefined, "値"]]);
+    expect(result).toBe(",,値");
+  });
+
+  it("数値・真偽値を文字列に変換", () => {
+    const result = generateCsvText([[1, true, false, 3.14]]);
+    expect(result).toBe("1,true,false,3.14");
+  });
+
+  it("空の配列 → 空文字列", () => {
+    expect(generateCsvText([])).toBe("");
   });
 });

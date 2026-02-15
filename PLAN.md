@@ -53,6 +53,15 @@ GAS（Google Apps Script）+ Google スプレッドシートで構築された�
 - Vitest セットアップ（パスエイリアス対応）
 - ユニットテスト: `quiz-logic`、`grade-logic`、`date-utils`、`csv-utils`
 
+### Phase 9: 成績CSVエクスポート ✅
+
+- `/teacher/export` エクスポートページ（Client Component）: 種別選択・フィルター・件数確認・ダウンロード
+- `/api/teacher/export` Route Handler: BOM付きUTF-8 CSVダウンロード
+- 2種類のエクスポート: 生徒一覧（統計付き）、受験記録詳細
+- `generateCsvText` 関数（RFC 4180準拠、自動エスケープ）+ ユニットテスト
+- `countExportRows` Server Action（`head: true` で軽量件数取得）
+- TeacherHeader にナビ追加
+
 ---
 
 ## データベーススキーマ（Supabase）
@@ -152,6 +161,5 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
 
 優先度や実装順は未定。必要に応じて選択。
 
-- **成績エクスポート**: CSV/Excel ダウンロード
 - **アクセシビリティ改善**: キーボード操作、スクリーンリーダー対応
 - **パフォーマンス最適化**: ISR/キャッシュ戦略、画像最適化

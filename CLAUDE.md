@@ -54,6 +54,8 @@ npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
 - `/teacher/grades` — グレード定義一覧
 - `/teacher/grades/new` — グレード定義登録
 - `/teacher/grades/[gradeId]/edit` — グレード定義編集
+- `/teacher/export` — 成績CSVエクスポート（Client Component、フィルター・件数確認・ダウンロード）
+- `/api/teacher/export` — CSVダウンロード用 Route Handler（BOM付きUTF-8）
 
 各ルートに `loading.tsx`（スケルトンUI）と `error.tsx`（リトライボタン付き）を配置済み。
 
@@ -66,7 +68,7 @@ npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
 ### Server Component / Client Component の使い分け
 
 - **Server Component**: ホーム画面、履歴、教員一覧/詳細ページ、テーブル系コンポーネント（`StudentTable`、`QuestionTable`、`GradeTable`）、表示系コンポーネント（`StudentInfoCard`、`QuizQuestion`、`QuizResult`、`HistoryItem`、`StatisticsCard`）
-- **Client Component** (`"use client"`): クイズページ、ヘッダー（`usePathname`）、`ScoreChart`（Chart.js）、`StudentFilter`（URL パラメータ操作）、フォーム系（`QuestionForm`/`StudentForm`/`GradeForm`）、CSVインポート系（`CsvImport`/`StudentCsvImport`）、`Pagination`、ログイン画面
+- **Client Component** (`"use client"`): クイズページ、ヘッダー（`usePathname`）、`ScoreChart`（Chart.js）、`StudentFilter`（URL パラメータ操作）、フォーム系（`QuestionForm`/`StudentForm`/`GradeForm`）、CSVインポート系（`CsvImport`/`StudentCsvImport`）、`Pagination`、ログイン画面、エクスポートページ
 
 ### 主要な lib モジュール
 
@@ -75,7 +77,7 @@ npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
 - `src/lib/quiz-logic.ts` — `shuffleArray`（Fisher-Yates）、`shuffleChoices`、`gradeQuiz`
 - `src/lib/grade-logic.ts` — `calculateGradeAdvancement`（連続日数・昇級判定）
 - `src/lib/date-utils.ts` — `getTodayJST`、`getRecentDates`、`isTakenToday` 等（Asia/Tokyo）
-- `src/lib/csv-utils.ts` — `parseCsvRows`（RFC 4180 準拠CSVパーサー、クォート内改行対応）
+- `src/lib/csv-utils.ts` — `parseCsvRows`（RFC 4180 準拠CSVパーサー、クォート内改行対応）、`generateCsvText`（2D配列→CSV文字列変換）
 - `middleware.ts`（ルート） — `/student/*` と `/teacher/*` ルートの認証ガード
 
 ### Server Actions
@@ -84,6 +86,7 @@ npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
 - `src/app/teacher/questions/actions.ts` — 問題のCRUD + CSVインポート（upsert で一括処理）
 - `src/app/teacher/students/actions.ts` — 生徒登録 + CSVインポート（新規挿入と既存更新を分離、`current_grade` 等は上書きしない）
 - `src/app/teacher/grades/actions.ts` — グレード定義のCRUD（削除時に生徒の参照チェック）
+- `src/app/teacher/export/actions.ts` — `countExportRows`（件数プレビュー）、`getGradeNames`（グレード選択肢取得）
 
 全 Server Action で `verifyTeacher()` による教員権限チェックを実施。変更後は `revalidatePath` でキャッシュを無効化。
 
@@ -109,6 +112,7 @@ Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` と `/te
 - **再受験**: `?retry=id1,id2,...` クエリパラメータで同じ問題セットを再生成。結果は保存しない。
 - **選択肢シャッフル**: `ShuffledChoice.originalIndex` で元のインデックスを追跡。回答は `originalIndex`（0-based）で管理。DB上の `correct_answer` は 1-based。
 - **CSVインポート**: `parseCsvRows`（`csv-utils.ts`）でパース → クライアント側バリデーション+プレビュー → Server Action で DB 保存。問題は upsert、生徒は新規挿入と既存更新を分離。UTF-8/Shift_JIS 自動判定。
+- **CSVエクスポート**: `/teacher/export` でフィルター選択 → 件数確認（Server Action、`head: true`）→ Route Handler (`/api/teacher/export`) でBOM付きUTF-8 CSVダウンロード。生徒一覧（統計付き）と受験記録詳細の2種類。
 
 ### データベース（Supabase）
 

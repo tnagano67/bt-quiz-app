@@ -1,3 +1,20 @@
+/** 2D配列をRFC 4180準拠のCSV文字列に変換 */
+export function generateCsvText(rows: (string | number | boolean | null | undefined)[][]): string {
+  return rows
+    .map((row) =>
+      row
+        .map((field) => {
+          const str = field == null ? "" : String(field);
+          if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        })
+        .join(",")
+    )
+    .join("\r\n");
+}
+
 /** CSV テキスト全体をパースし、複数行フィールド（クォート内の改行）に対応 */
 export function parseCsvRows(text: string): string[][] {
   const rows: string[][] = [];
