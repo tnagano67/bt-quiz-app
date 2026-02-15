@@ -259,7 +259,7 @@ export default async function TeacherHomePage({ searchParams }: Props) {
                     </span>
                   </div>
                   <span className="text-sm font-bold text-green-700">
-                    {s.consecutive_pass_days}日連続
+                    {s.consecutive_pass_days}日連続合格
                   </span>
                 </li>
               ))}
@@ -292,9 +292,9 @@ export default async function TeacherHomePage({ searchParams }: Props) {
                     </span>
                   </div>
                   <span className="text-sm font-bold text-orange-700">
-                    {s.last_challenge_date
+                    最終受験日：{s.last_challenge_date
                       ? formatDateShort(s.last_challenge_date)
-                      : "未受験"}
+                      : "なし"}
                   </span>
                 </li>
               ))}
