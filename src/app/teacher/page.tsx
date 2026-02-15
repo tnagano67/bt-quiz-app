@@ -33,6 +33,29 @@ async function fetchAllRecentRecords(
   return allRecords;
 }
 
+/** Supabase の 1000 行制限を回避して全生徒を取得 */
+async function fetchAllStudents(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<Student[]> {
+  const PAGE_SIZE = 1000;
+  const allStudents: Student[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data } = await supabase
+      .from("students")
+      .select("*")
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (!data || data.length === 0) break;
+    allStudents.push(...(data as Student[]));
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return allStudents;
+}
+
 export default async function TeacherHomePage() {
   const supabase = await createClient();
 
@@ -54,9 +77,9 @@ export default async function TeacherHomePage() {
   const sinceDate = getRecentDates(30).at(-1)!;
 
   // データ取得（並列）
-  const [studentsResult, gradesResult, recentRecords, latestRecordsResult] =
+  const [students, gradesResult, recentRecords, latestRecordsResult] =
     await Promise.all([
-      supabase.from("students").select("*"),
+      fetchAllStudents(supabase),
       supabase
         .from("grade_definitions")
         .select("*")
@@ -69,7 +92,6 @@ export default async function TeacherHomePage() {
         .limit(10),
     ]);
 
-  const students = (studentsResult.data ?? []) as Student[];
   const grades = gradesResult.data ?? [];
   const latestRecords = (latestRecordsResult.data ?? []) as QuizRecord[];
 
@@ -103,7 +125,9 @@ export default async function TeacherHomePage() {
   }
   const gradeDistribution = grades.map((g) => ({
     gradeName: g.grade_name as string,
-    count: gradeCountMap.get(g.grade_name as string) ?? 0,
+    percentage: totalStudents > 0
+      ? Math.round(((gradeCountMap.get(g.grade_name as string) ?? 0) / totalStudents) * 100)
+      : 0,
   }));
 
   // 合格率推移データ（古い順）

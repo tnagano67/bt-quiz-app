@@ -7,13 +7,14 @@ import {
   BarElement,
   Title,
   Tooltip,
+  type TooltipItem,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
 
 type Props = {
-  data: { gradeName: string; count: number }[];
+  data: { gradeName: string; percentage: number }[];
 };
 
 export default function GradeDistributionChart({ data }: Props) {
@@ -21,8 +22,8 @@ export default function GradeDistributionChart({ data }: Props) {
     labels: data.map((d) => d.gradeName),
     datasets: [
       {
-        label: "生徒数",
-        data: data.map((d) => d.count),
+        label: "割合（%）",
+        data: data.map((d) => d.percentage),
         backgroundColor: "#0d9488",
         borderColor: "#0d9488",
         borderWidth: 1,
@@ -37,15 +38,20 @@ export default function GradeDistributionChart({ data }: Props) {
     responsive: true,
     plugins: {
       legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (context: TooltipItem<"bar">) => `${context.parsed.x ?? 0}%`,
+        },
+      },
     },
     scales: {
       x: {
         beginAtZero: true,
+        max: 100,
         ticks: {
-          stepSize: 1,
-          precision: 0,
+          callback: (value: string | number) => `${value}%`,
         },
-        title: { display: true, text: "人数" },
+        title: { display: true, text: "割合（%）" },
       },
       y: {
         title: { display: false },
