@@ -35,7 +35,7 @@ export default async function TeacherHomePage() {
       supabase
         .from("quiz_records")
         .select("*")
-        .gte("taken_at", getRecentDates(30).at(-1)!)
+        .gte("taken_at", `${getRecentDates(30).at(-1)!}T00:00:00+09:00`)
         .order("taken_at", { ascending: false }),
       supabase
         .from("quiz_records")
