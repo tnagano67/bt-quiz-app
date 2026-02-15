@@ -80,6 +80,11 @@ Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` と `/te
 
 **教員ページの二重認証チェック**: middleware だけに頼らず、各教員 Server Component ページで `supabase.auth.getUser()` → `teachers` テーブル照合を再実行。未認証→`/login`、教員でない→`/` へリダイレクト。Server Actions でも `verifyTeacher()` ヘルパーで同様のチェック。
 
+### デプロイ・インフラ
+
+- **Vercel**: デプロイ済み・本番稼働中
+- **Supabase**: 環境設定完了（テーブル・RLS・Google OAuth 設定済み）
+
 ### 環境変数
 
 `.env.local` に以下が必要:
