@@ -44,7 +44,7 @@ npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
 - `/student` — 生徒ホーム（ダッシュボード）
 - `/student/quiz` — 小テスト（Client Component、`Suspense` ラッパー）
 - `/student/history` — 学習履歴・再受験
-- `/teacher` — 教員ホーム
+- `/teacher` — 教員ダッシュボード（概要統計・グレード分布チャート・合格率推移チャート・最近の受験活動）
 - `/teacher/students` — 生徒一覧（URLパラメータでフィルター）、CSVインポート
 - `/teacher/students/new` — 生徒登録
 - `/teacher/students/[studentId]` — 生徒詳細（30日統計・チャート）
@@ -68,7 +68,7 @@ npx vitest run src/lib/csv-utils.test.ts  # 単一テストファイル実行
 ### Server Component / Client Component の使い分け
 
 - **Server Component**: ホーム画面、履歴、教員一覧/詳細ページ、テーブル系コンポーネント（`StudentTable`、`QuestionTable`、`GradeTable`）、表示系コンポーネント（`StudentInfoCard`、`QuizQuestion`、`QuizResult`、`HistoryItem`、`StatisticsCard`）
-- **Client Component** (`"use client"`): クイズページ、ヘッダー（`usePathname`）、`ScoreChart`（Chart.js）、`StudentFilter`（URL パラメータ操作）、フォーム系（`QuestionForm`/`StudentForm`/`GradeForm`）、CSVインポート系（`CsvImport`/`StudentCsvImport`）、`Pagination`、ログイン画面、エクスポートページ
+- **Client Component** (`"use client"`): クイズページ、ヘッダー（`usePathname`）、`ScoreChart`/`GradeDistributionChart`/`PassRateTrendChart`（Chart.js）、`StudentFilter`（URL パラメータ操作）、フォーム系（`QuestionForm`/`StudentForm`/`GradeForm`）、CSVインポート系（`CsvImport`/`StudentCsvImport`）、`Pagination`、ログイン画面、エクスポートページ
 
 ### 主要な lib モジュール
 

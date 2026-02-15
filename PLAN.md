@@ -155,6 +155,14 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
 - **Vercel**: デプロイ済み。本番環境で稼働中。
 - **Supabase**: 環境設定完了。本番用プロジェクトのテーブル・RLS ポリシー・認証（Google OAuth）すべて設定済み。
 
+### Phase 10: 教員ダッシュボード強化 ✅
+
+- 概要統計カード（総生徒数・本日受験数・30日合格率・30日平均スコア）
+- グレード分布横棒グラフ（`GradeDistributionChart`、Chart.js）
+- 合格率推移折れ線グラフ（`PassRateTrendChart`、Chart.js、30日分）
+- 最近の受験活動テーブル（直近10件、生徒名・グレード・スコア・合否・日時）
+- 4つのSupabaseクエリを `Promise.all` で並列取得
+
 ---
 
 ## 今後の候補（未着手）
