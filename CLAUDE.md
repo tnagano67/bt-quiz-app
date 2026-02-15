@@ -132,7 +132,7 @@ Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` と `/te
 
 - **Vitest** 設定: `vitest.config.ts`（`src/**/*.test.ts` と `src/**/*.test.tsx` を対象）
 - **Supabase モック**: `src/test-utils/supabase-mock.ts` — `createMockSupabase()` でチェーン可能なクエリビルダーモックを生成。テーブル・操作ごとのレスポンス設定、`setTableResponse()` による動的切替に対応。`vi.mock("@/lib/supabase/server", () => mockModule)` で利用。
-- **テスト対象**: lib モジュール（`quiz-logic`、`grade-logic`、`date-utils`、`csv-utils`、`validation`、`export-utils`）、Server Actions（`quiz/actions`、`questions/actions`）
+- **テスト対象**: lib モジュール（`quiz-logic`、`grade-logic`、`date-utils`、`csv-utils`、`validation`、`export-utils`）、Server Actions（`quiz/actions`、`questions/actions`、`students/actions`、`grades/actions`、`teachers/actions`、`export/actions`）
 
 ### シードスクリプト
 

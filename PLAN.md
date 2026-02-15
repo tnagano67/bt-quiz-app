@@ -196,8 +196,19 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
 - **採点ロジック分離**: `saveQuizResult()` 内のサーバー側再採点コードを `quiz-logic.ts` の `verifyScore()` 関数に抽出
 - **テストモック基盤**: `src/test-utils/supabase-mock.ts` — Supabase クライアントのチェーン可能なモック工場（テーブル・操作ごとのレスポンス設定、動的切替対応）
 - **ユニットテスト追加**: `validation.test.ts`（35件）、`export-utils.test.ts`（19件）、`quiz-logic.test.ts` に `verifyScore` テスト追加（6件）
-- **Server Actions テスト追加**: `quiz/actions.test.ts`（11件）、`questions/actions.test.ts`（11件）— モック Supabase による統合テスト
+- **Server Actions テスト追加**: `quiz/actions.test.ts`（7件）、`questions/actions.test.ts`（13件）— モック Supabase による統合テスト
 - **Vitest 設定**: `.test.tsx` ファイルもテスト対象に含める
+
+### Phase 11.1: テストカバレッジ拡充 ✅
+
+- **残り Server Actions のテスト追加**:
+  - `students/actions.test.ts`（14件）: `createStudent`（認証・権限・重複・成功・DBエラー）、`importStudents`（認証・バリデーション・挿入・更新・混合・エラー）
+  - `grades/actions.test.ts`（16件）: `createGrade`（認証・重複・成功）、`updateGrade`（存在チェック・display_order衝突・成功・DBエラー）、`deleteGrade`（認証・存在チェック・成功・DBエラー）
+  - `teachers/actions.test.ts`（16件）: `createTeacher`（認証・重複）、`importTeachers`（upsert・バリデーション・DBエラー）、`deleteTeacher`（自己削除防止・存在チェック・成功・DBエラー）
+  - `export/actions.test.ts`（10件）: `countExportRows`（students/records フィルターなし/あり・不正type）、`getGradeNames`（認証・成功）
+  - `questions/actions.test.ts` に `updateQuestion` テスト追加（3件）
+- **モック技法**: 同一テーブルの select を連続で異なるレスポンスにする必要がある場合（`updateGrade`、`deleteTeacher`）、`from` のカスタム実装でコールカウントベースの分岐を使用
+- **テスト総数**: 134 → 177件（+43件）
 
 ---
 

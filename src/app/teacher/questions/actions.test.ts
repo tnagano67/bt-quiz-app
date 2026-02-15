@@ -24,9 +24,8 @@ vi.mock("@/lib/supabase/server", () => mockSetup.mockModule);
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 // 動的 import で Server Actions を読み込み（モック適用後）
-const { createQuestion, importQuestions, deleteQuestion } = await import(
-  "./actions"
-);
+const { createQuestion, updateQuestion, importQuestions, deleteQuestion } =
+  await import("./actions");
 
 describe("createQuestion", () => {
   beforeEach(() => {
@@ -241,6 +240,66 @@ describe("importQuestions", () => {
     expect(result.inserted).toBe(0);
     expect(result.updated).toBe(0);
     expect(result.errors.length).toBe(1);
+  });
+});
+
+describe("updateQuestion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSetup.supabase.auth.getUser.mockResolvedValue({
+      data: { user: { email: "teacher@example.com" } },
+      error: null,
+    });
+    mockSetup.setTableResponse("teachers", "select", {
+      data: { id: "t1" },
+      error: null,
+    });
+  });
+
+  const validInput = {
+    question_text: "更新後の問題",
+    choice_1: "A",
+    choice_2: "B",
+    choice_3: "C",
+    choice_4: "D",
+    correct_answer: 3,
+  };
+
+  it("存在しない問題 → エラー", async () => {
+    mockSetup.setTableResponse("questions", "select", {
+      data: null,
+      error: null,
+    });
+    const result = await updateQuestion(999, validInput);
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("見つかりません");
+  });
+
+  it("正常更新 → success", async () => {
+    mockSetup.setTableResponse("questions", "select", {
+      data: { id: "q1" },
+      error: null,
+    });
+    mockSetup.setTableResponse("questions", "update", {
+      data: null,
+      error: null,
+    });
+    const result = await updateQuestion(1, validInput);
+    expect(result.success).toBe(true);
+  });
+
+  it("DB エラー → 失敗メッセージ", async () => {
+    mockSetup.setTableResponse("questions", "select", {
+      data: { id: "q1" },
+      error: null,
+    });
+    mockSetup.setTableResponse("questions", "update", {
+      data: null,
+      error: { message: "db error" },
+    });
+    const result = await updateQuestion(1, validInput);
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("失敗");
   });
 });
 
