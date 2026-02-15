@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-BT管理システム — 教育機関向け小テスト・成績管理システム。元は GAS + Google スプレッドシートで構築されていたものを、モダンスタックで再構築。学習・練習目的。生徒機能（小テスト受験・履歴・成績チャート）と教員機能（生徒管理・問題管理・成績ダッシュボード）を実装済み。
+BT管理システム — 教育機関向け小テスト・成績管理システム。元は GAS + Google スプレッドシートで構築されていたものを、モダンスタックで再構築。学習・練習目的。生徒機能（小テスト受験・履歴・成績チャート）と教員機能（読み取り専用の生徒閲覧・検索・成績ダッシュボード）を実装済み。
 
 **実装計画**: 詳細は `PLAN.md` を参照。
 
@@ -23,12 +23,14 @@ BT管理システム — 教育機関向け小テスト・成績管理システ�
 
 ```bash
 npm run dev      # 開発サーバー起動 (localhost:3000)
-npm run build    # 本番ビルド
+npm run build    # 本番ビルド（Turbopack）
 npm run start    # 本番サーバー起動
 npm run lint     # ESLint 実行
+npm run test     # Vitest テスト一度実行
+npm run test:watch # Vitest ウォッチモード
 ```
 
-テストフレームワークは未導入。
+テストは **Vitest** を使用。テストファイルはソースファイルの隣に `*.test.ts` で配置（コロケーション方式）。
 
 ## アーキテクチャ
 
@@ -41,12 +43,8 @@ npm run lint     # ESLint 実行
 - `/student/quiz` — 小テスト（Client Component、`Suspense` ラッパー）
 - `/student/history` — 学習履歴・再受験
 - `/teacher` — 教員ホーム
-- `/teacher/students` — 生徒一覧（URLパラメータでフィルター・ページネーション）
+- `/teacher/students` — 生徒一覧（URLパラメータでフィルター）
 - `/teacher/students/[studentId]` — 生徒詳細（30日統計・チャート）
-- `/teacher/students/new` — 生徒新規登録（単体 / CSV一括インポート）
-- `/teacher/questions` — 問題一覧（グレードフィルター・ページネーション）
-- `/teacher/questions/new` — 問題新規作成（単体 / CSV一括インポート）
-- `/teacher/questions/[questionId]/edit` — 問題編集
 
 各ルートに `loading.tsx`（スケルトンUI）と `error.tsx`（リトライボタン付き）を配置済み。
 
@@ -58,8 +56,8 @@ npm run lint     # ESLint 実行
 
 ### Server Component / Client Component の使い分け
 
-- **Server Component**: ページコンポーネント（教員・生徒）、`StudentInfoCard`、`HistoryItem`、`QuizResult`、`StudentTable`、`StatisticsCard`
-- **Client Component** (`"use client"`): クイズページ、`Header`/`TeacherHeader`（`usePathname`）、`ScoreChart`（Chart.js）、`StudentFilter`（URLパラメータ）、`QuestionForm`/`StudentForm`（フォーム状態）、`QuestionTable`（Server Action呼び出し）、`CsvImport`/`StudentCsvImport`（ファイル読み込み）、`Pagination`（`useRouter`）、ログイン画面
+- **Server Component**: ホーム画面、履歴、教員ページ全般、`StudentInfoCard`、`HistoryItem`、`QuizQuestion`、`QuizResult`、`StudentTable`、`StatisticsCard`
+- **Client Component** (`"use client"`): クイズページ、`Header`/`TeacherHeader`（`usePathname` でナビ状態管理）、`ScoreChart`（Chart.js）、`StudentFilter`（URL パラメータ操作）、ログイン画面
 
 ### 主要ディレクトリ
 
@@ -78,32 +76,11 @@ npm run lint     # ESLint 実行
 
 Supabase Auth 経由の Google OAuth。`middleware.ts` が `/student/*` と `/teacher/*` を保護し、未認証ユーザーを `/login` にリダイレクト。`/auth/callback` で認証コードをセッションに変換後 `/` へリダイレクト。ルートページ (`/`) で `teachers` → `students` の順にメール照合してロール判定・リダイレクト。どちらにも該当しない場合は「未登録」メッセージを表示（ログインループ防止）。
 
-**教員ページの二重認証チェック**: middleware だけに頼らず、各教員 Server Component ページで `supabase.auth.getUser()` → `teachers` テーブル照合を再実行。未認証→`/login`、教員でない→`/` へリダイレクト。Server Actions でも `verifyTeacher()` ヘルパーで同様のチェック。
-
-### デプロイ・インフラ
-
-- **Vercel**: デプロイ済み・本番稼働中
-- **Supabase**: 環境設定完了（テーブル・RLS・Google OAuth 設定済み）
-
 ### 環境変数
 
 `.env.local` に以下が必要:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-### Next.js 16 の動的パラメータ
-
-`params` と `searchParams` は Promise。全ページで以下のパターンを使用:
-
-```typescript
-type Props = {
-  searchParams: Promise<{ grade?: string; page?: string }>;
-  params: Promise<{ questionId: string }>;
-};
-export default async function Page({ searchParams, params }: Props) {
-  const p = await searchParams;
-  const { questionId } = await params;
-```
 
 ### コアビジネスロジック
 
@@ -113,33 +90,11 @@ export default async function Page({ searchParams, params }: Props) {
 - **再受験**: `?retry=id1,id2,...` クエリパラメータで同じ問題セットを再生成。結果は保存しない。
 - **選択肢シャッフル**: `ShuffledChoice.originalIndex` で元のインデックスを追跡。回答は `originalIndex`（0-based）で管理。DB上の `correct_answer` は 1-based。
 
-### Server Actions パターン
+### 教員機能（読み取り専用）
 
-- **生徒用**: `src/app/student/quiz/actions.ts` — 小テスト結果のサーバー側再検証・DB保存
-- **教員用**: `src/app/teacher/questions/actions.ts`（問題CRUD + CSVインポート）、`src/app/teacher/students/actions.ts`（生徒登録 + CSVインポート）
-- 教員用 Server Actions は先頭で `verifyTeacher()` を呼び出し、戻り値は `{ success: boolean; message?: string }` の `Result` 型に統一
-- CSV一括インポートの戻り値は `{ success, message?, inserted, updated, errors[] }` の `ImportResult` 型
-- `revalidatePath()` で関連パスを必ずキャッシュ無効化
-- 問題CSVインポートは `upsert({ onConflict: "question_id" })` で一括処理
-- 生徒CSVインポートは insert/update を分離（`current_grade` 等を上書きしないため）
-
-### ページネーションパターン
-
-教員テーブルページ（`/teacher/students`, `/teacher/questions`）はサーバーサイドページネーション（`PAGE_SIZE = 50`）。Supabase の `select("*", { count: "exact" }).range(from, to)` でページデータと件数を同時取得。共通 `Pagination` コンポーネントを上下2箇所に配置。
-
-### CSV インポート
-
-- `CsvImport`（問題用）/ `StudentCsvImport`（生徒用）は「追加ボタン → ドロップダウンメニュー（1件登録 / CSVで一括追加）→ CSVモード」の状態遷移（`Mode: "closed" | "menu" | "csv"`）
-- 問題用 CSV は UTF-8/Shift-JIS 両対応（`ArrayBuffer` → UTF-8デコード試行 → `\uFFFD` 含む場合 Shift-JIS で再デコード）
-- 独自CSVパーサー内蔵（クォート内改行対応）
-
-### 教員機能
-
-- **生徒一覧**: サーバーサイドページネーション + フィルタリング（学年/組/グレード範囲/氏名）。`searchParams` でフィルター状態を URL に保持。直近3日のスコアをテーブルに表示。
+- **生徒一覧**: 全生徒を Server Component で取得し、JS でフィルタリング（学年/組/グレード範囲/氏名）。`searchParams` でフィルター状態を URL に保持。直近3日のスコアをテーブルに表示。
 - **生徒詳細**: 直近30日の `quiz_records` から統計（総受験回数/平均点/最高点/合格率）を算出。`ScoreChart` を30日対応で再利用（`title`/`maxTicksLimit` props）。
-- **生徒登録**: 単体フォームまたはCSV一括インポート。`current_grade` は `grade_definitions` の `display_order` 最小のものを動的取得。
-- **問題管理**: CRUD + CSV一括インポート。問題の作成・編集は共通 `QuestionForm`（`mode: "create" | "edit"` prop）で処理。
 
 ### データベーステーブル（Supabase）
 
-`students`、`teachers`、`grade_definitions`、`questions`、`quiz_records` — すべて RLS 有効。`students`/`teachers` テーブルへの登録は手動またはCSVインポート。メールアドレスで Google アカウントと紐付け。RLS ポリシーは `auth.jwt() ->> 'email'` でメール照合。教員は全生徒・全成績・全グレード定義・全問題を閲覧・操作可能（RLS ポリシーで `teachers` テーブルの存在チェック）。スキーマの詳細は `PLAN.md` を参照。
+`students`、`teachers`、`grade_definitions`、`questions`、`quiz_records` — すべて RLS 有効。`students`/`teachers` テーブルへの登録は手動。メールアドレスで Google アカウントと紐付け。RLS ポリシーは `auth.jwt() ->> 'email'` でメール照合。教員は全生徒・全成績・全グレード定義を閲覧可能（RLS ポリシーで `teachers` テーブルの存在チェック）。スキーマの詳細は `PLAN.md` を参照。
