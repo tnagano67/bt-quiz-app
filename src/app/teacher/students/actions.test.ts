@@ -31,7 +31,8 @@ const mockSetup = createMockSupabase({
 vi.mock("@/lib/supabase/server", () => mockSetup.mockModule);
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const { createStudent, importStudents } = await import("./actions");
+const { createStudent, importStudents, updateStudent, deleteStudent } =
+  await import("./actions");
 
 const validStudent = {
   email: "student@example.com",
@@ -263,5 +264,168 @@ describe("importStudents", () => {
     expect(result.inserted).toBe(0);
     expect(result.updated).toBe(0);
     expect(result.errors.length).toBe(2);
+  });
+});
+
+describe("updateStudent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSetup.supabase.auth.getUser.mockResolvedValue({
+      data: { user: { email: "teacher@example.com" } },
+      error: null,
+    });
+    mockSetup.setTableResponse("teachers", "select", {
+      data: { id: "t1" },
+      error: null,
+    });
+    mockSetup.setTableResponse("students", "select", {
+      data: null,
+      error: null,
+    });
+    mockSetup.setTableResponse("students", "update", {
+      data: null,
+      error: null,
+    });
+  });
+
+  it("未認証 → エラー", async () => {
+    mockSetup.supabase.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    });
+    const result = await updateStudent("s1", validStudent);
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("認証");
+  });
+
+  it("非教員 → エラー", async () => {
+    mockSetup.setTableResponse("teachers", "select", {
+      data: null,
+      error: null,
+    });
+    const result = await updateStudent("s1", validStudent);
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("教員権限");
+  });
+
+  it("メール重複（自身以外） → エラー", async () => {
+    mockSetup.setTableResponse("students", "select", {
+      data: { id: "other-id" },
+      error: null,
+    });
+    const result = await updateStudent("s1", validStudent);
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("すでに登録");
+  });
+
+  it("正常更新 → success", async () => {
+    const result = await updateStudent("s1", validStudent);
+    expect(result.success).toBe(true);
+  });
+
+  it("DB エラー → 失敗メッセージ", async () => {
+    mockSetup.setTableResponse("students", "update", {
+      data: null,
+      error: { message: "update error" },
+    });
+    const result = await updateStudent("s1", validStudent);
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("失敗");
+  });
+});
+
+describe("deleteStudent", () => {
+  /** チェーン可能なビルダーを生成するヘルパー */
+  function makeBuilder(response: { data: unknown; error: unknown }) {
+    const chainMethods = [
+      "eq", "neq", "in", "select", "order", "limit", "single", "range", "gte", "lte", "is",
+    ];
+    const builder: Record<string, unknown> = {};
+    for (const method of chainMethods) {
+      builder[method] = vi.fn().mockReturnValue(builder);
+    }
+    builder.then = (resolve: (value: unknown) => void) => resolve(response);
+    return builder;
+  }
+
+  const originalFromImpl = mockSetup.supabase.from.getMockImplementation();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSetup.supabase.auth.getUser.mockResolvedValue({
+      data: { user: { email: "teacher@example.com" } },
+      error: null,
+    });
+    mockSetup.supabase.from.mockImplementation(originalFromImpl!);
+    mockSetup.setTableResponse("teachers", "select", {
+      data: { id: "t1" },
+      error: null,
+    });
+    mockSetup.setTableResponse("students", "delete", {
+      data: null,
+      error: null,
+    });
+  });
+
+  it("未認証 → エラー", async () => {
+    mockSetup.supabase.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    });
+    const result = await deleteStudent("s1");
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("認証");
+  });
+
+  it("非教員 → エラー", async () => {
+    mockSetup.setTableResponse("teachers", "select", {
+      data: null,
+      error: null,
+    });
+    const result = await deleteStudent("s1");
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("教員権限");
+  });
+
+  it("正常削除 → success", async () => {
+    // deleteStudent は quiz_records, student_subject_progress, students の3テーブルに delete を呼ぶ
+    mockSetup.supabase.from.mockImplementation((table: string) => {
+      if (table === "teachers") {
+        return {
+          select: vi.fn(() => makeBuilder({ data: { id: "t1" }, error: null })),
+        };
+      }
+      // quiz_records, student_subject_progress, students すべて成功
+      return {
+        delete: vi.fn(() => makeBuilder({ data: null, error: null })),
+      };
+    });
+    const result = await deleteStudent("s1");
+    expect(result.success).toBe(true);
+  });
+
+  it("DB 削除エラー → 失敗メッセージ", async () => {
+    let deleteCount = 0;
+    mockSetup.supabase.from.mockImplementation((table: string) => {
+      if (table === "teachers") {
+        return {
+          select: vi.fn(() => makeBuilder({ data: { id: "t1" }, error: null })),
+        };
+      }
+      return {
+        delete: vi.fn(() => {
+          deleteCount++;
+          // 3回目（students テーブルの delete）でエラー
+          return makeBuilder(
+            deleteCount === 3
+              ? { data: null, error: { message: "delete error" } }
+              : { data: null, error: null }
+          );
+        }),
+      };
+    });
+    const result = await deleteStudent("s1");
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("失敗");
   });
 });

@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { TEMP_QUESTION_ID_START } from "../fixtures/test-data";
+import { TEMP_QUESTION_ID_START, TEST_SUBJECT } from "../fixtures/test-data";
 import path from "path";
 import fs from "fs";
 
 test.describe("問題管理", () => {
   test("問題一覧が表示される", async ({ page }) => {
-    // 10級のグレードフィルターでテスト問題を絞り込み
-    await page.goto("/teacher/questions?grade=10級");
+    // 科目フィルターでテスト問題を絞り込み
+    await page.goto(`/teacher/questions?subject=${TEST_SUBJECT.id}`);
 
     // テスト問題が表示されていること
     await expect(page.getByText("E2Eテスト問題1", { exact: true })).toBeVisible();
@@ -14,6 +14,9 @@ test.describe("問題管理", () => {
 
   test("新規問題を登録できる", async ({ page }) => {
     await page.goto("/teacher/questions/new");
+
+    // 科目を選択
+    await page.locator("select#question-subject").selectOption(TEST_SUBJECT.id);
 
     // 問題ID
     await page
@@ -62,7 +65,8 @@ test.describe("問題管理", () => {
   });
 
   test("CSVインポートで問題を一括追加できる", async ({ page }) => {
-    await page.goto("/teacher/questions");
+    // 科目フィルタ付きでアクセス
+    await page.goto(`/teacher/questions?subject=${TEST_SUBJECT.id}`);
 
     // 「問題を追加」メニューを開く
     await page.getByRole("button", { name: "問題を追加" }).click();

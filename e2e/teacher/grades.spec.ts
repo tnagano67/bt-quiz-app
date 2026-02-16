@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { TEST_SUBJECT } from "../fixtures/test-data";
 
 test.describe("グレード管理", () => {
   test("グレード一覧が表示される", async ({ page }) => {
@@ -10,6 +11,9 @@ test.describe("グレード管理", () => {
 
   test("新規グレードを登録できる", async ({ page }) => {
     await page.goto("/teacher/grades/new");
+
+    // 科目を選択
+    await page.locator("select#grade-subject").selectOption(TEST_SUBJECT.id);
 
     // グレード名
     await page

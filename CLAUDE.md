@@ -52,6 +52,7 @@ npm run test:e2e:headed  # ブラウザ表示付きで実行
 - `/teacher/students` — 生徒一覧（URLパラメータでフィルター・科目フィルタ）、CSVインポート
 - `/teacher/students/new` — 生徒登録
 - `/teacher/students/[studentId]` — 生徒詳細（30日統計・チャート）
+- `/teacher/students/[studentId]/edit` — 生徒編集
 - `/teacher/subjects` — 科目一覧・登録・編集・削除
 - `/teacher/subjects/new` — 科目登録
 - `/teacher/subjects/[subjectId]/edit` — 科目編集
@@ -95,8 +96,8 @@ npm run test:e2e:headed  # ブラウザ表示付きで実行
 
 - `src/app/student/quiz/actions.ts` — 小テスト結果保存（認証・本人確認・日次制限・サーバー側再採点・進級計算・DB保存）。進捗は `student_subject_progress` テーブルで科目別に管理
 - `src/app/teacher/subjects/actions.ts` — 科目のCRUD。作成時に全生徒分の `student_subject_progress` を自動作成（1000件バッチ）。削除時に参照チェック
-- `src/app/teacher/questions/actions.ts` — 問題のCRUD + CSVインポート（upsert、`subject_id` 必須、複合 UNIQUE `(subject_id, question_id)`）
-- `src/app/teacher/students/actions.ts` — 生徒登録 + CSVインポート。作成時に全科目分の `student_subject_progress` を自動作成
+- `src/app/teacher/questions/actions.ts` — 問題のCRUD + CSVインポート（upsert、`subject_id` 必須、複合 UNIQUE `(subject_id, question_id)`、同一ファイル内の重複 `question_id` は後勝ちで自動重複排除）
+- `src/app/teacher/students/actions.ts` — 生徒のCRUD（登録・編集・削除）+ CSVインポート。作成時に全科目分の `student_subject_progress` を自動作成。削除時は `quiz_records` → `student_subject_progress` → `students` の順に明示的に関連データを先に削除
 - `src/app/teacher/grades/actions.ts` — グレード定義のCRUD（削除時に `student_subject_progress` の参照チェック、複合 UNIQUE `(subject_id, grade_name)` / `(subject_id, display_order)`）
 - `src/app/teacher/teachers/actions.ts` — 教員のCRUD + CSVインポート（upsert + `ignoreDuplicates` で既存メールをスキップ）
 - `src/app/teacher/export/actions.ts` — `countExportRows`（件数プレビュー、科目フィルタ対応）、`getGradeNames`（科目別グレード選択肢取得）、`getSubjects`（科目一覧取得）
@@ -140,6 +141,7 @@ E2Eテスト実行時は追加で以下が必要:
 
 - **行数制限**: Supabase（PostgREST）はデフォルトで最大1000行しか返さない。`.limit()` を設定してもサーバー側の `max-rows` 設定で制限される。大量のレコードを取得する場合は `.range()` によるページネーションが必要（参考: `teacher/page.tsx` の `fetchAllRecentRecords()`）。
 - **TIMESTAMPTZ フィルター**: `taken_at` 等の TIMESTAMPTZ カラムに対する `.gte()` / `.lte()` フィルターでは、日付文字列にタイムゾーンを明示する必要がある（例: `${date}T00:00:00+09:00`）。タイムゾーンなしの `YYYY-MM-DD` 文字列では正しくフィルタされない。
+- **`.in()` の URL 長制限**: `.in()` に大量の UUID（1000件超）を渡すと PostgREST の URL 長制限を超えてリクエストが失敗する。フィルタなしなら `.range()` ページネーションで全件取得、フィルタありなら `.in()` を200件ずつバッチ分割して結合する（参考: `teacher/page.tsx` のグレード分布チャート取得）。
 
 ### アクセシビリティ（WCAG AA 準拠）
 
@@ -156,14 +158,14 @@ E2Eテスト実行時は追加で以下が必要:
 
 - **Vitest**（ユニットテスト）: `vitest.config.ts`（`src/**/*.test.ts` と `src/**/*.test.tsx` を対象）
 - **Supabase モック**: `src/test-utils/supabase-mock.ts` — `createMockSupabase()` でチェーン可能なクエリビルダーモックを生成。テーブル・操作ごとのレスポンス設定、`setTableResponse()` による動的切替に対応。`vi.mock("@/lib/supabase/server", () => mockModule)` で利用。
-- **ユニットテスト対象**: lib モジュール（`quiz-logic`、`grade-logic`、`date-utils`、`csv-utils`、`validation`、`export-utils`）、Server Actions（`quiz/actions`、`questions/actions`、`students/actions`、`grades/actions`、`teachers/actions`、`export/actions`）
+- **ユニットテスト対象**: lib モジュール（`quiz-logic`、`grade-logic`、`date-utils`、`csv-utils`、`validation`、`export-utils`）、Server Actions（`quiz/actions`、`questions/actions`、`students/actions`（`createStudent`/`updateStudent`/`deleteStudent`/`importStudents`）、`grades/actions`、`teachers/actions`、`export/actions`）
 - **Playwright**（E2Eテスト）: `playwright.config.ts`、テストファイルは `e2e/` ディレクトリ
   - 3プロジェクト構成: `setup`（認証・シードデータ）、`teacher`（教員テスト）、`student`（生徒テスト）
   - 認証方式: Supabase Admin API でテストユーザー作成 → `signInWithPassword()` → storageState にクッキー保存（Google OAuth をバイパス）
-  - `e2e/helpers/seed.ts`: `service_role` キーでテストデータ投入・クリーンアップ
-  - `e2e/fixtures/test-data.ts`: テスト用定数（問題ID 9001〜9010、一時データは 9100〜）
+  - `e2e/helpers/seed.ts`: `service_role` キーでテストデータ投入・クリーンアップ。テスト科目の upsert → グレード定義・問題・生徒・`student_subject_progress` の順に投入
+  - `e2e/fixtures/test-data.ts`: テスト用定数（`TEST_SUBJECT` 固定UUID、問題ID 9001〜9010、一時データは 9100〜）。全テストデータに `subject_id` 付き
   - `e2e/global-setup.ts`: 認証セッション作成 + シードデータ投入（setup project として実行）
-  - E2Eテスト対象: 教員ダッシュボード・生徒/問題/グレード管理（CRUD）・CSVインポート・CSVエクスポート・生徒ダッシュボード・小テスト受験・履歴表示（全18テスト）
+  - E2Eテスト対象: 教員ダッシュボード・生徒/問題/グレード管理（CRUD・科目選択）・CSVインポート・CSVエクスポート・生徒ダッシュボード（科目カード）・小テスト受験（`?subject=` 必須）・履歴表示（全18テスト）
 
 ### シードスクリプト
 

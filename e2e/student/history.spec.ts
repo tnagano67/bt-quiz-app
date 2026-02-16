@@ -7,7 +7,6 @@ test.describe("学習履歴", () => {
 
     // 生徒サマリー
     await expect(page.getByText(STUDENT.name)).toBeVisible();
-    await expect(page.getByText("現在のグレード")).toBeVisible();
     await expect(page.getByText("総受験回数")).toBeVisible();
     await expect(page.getByText("合格率")).toBeVisible();
 

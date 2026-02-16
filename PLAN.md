@@ -213,7 +213,7 @@ CREATE INDEX idx_quiz_records_subject_id ON quiz_records(subject_id);
   - `export/actions.test.ts`（10件）: `countExportRows`（students/records フィルターなし/あり・不正type）、`getGradeNames`（認証・成功）
   - `questions/actions.test.ts` に `updateQuestion` テスト追加（3件）
 - **モック技法**: 同一テーブルの select を連続で異なるレスポンスにする必要がある場合（`updateGrade`、`deleteTeacher`）、`from` のカスタム実装でコールカウントベースの分岐を使用
-- **テスト総数**: 134 → 177件（+43件）
+- **テスト総数**: 134 → 177件（+43件）。Phase 14.2 で 188件に拡充
 
 ### Phase 12: E2Eテスト（Playwright）導入 ✅
 
@@ -238,7 +238,7 @@ CREATE INDEX idx_quiz_records_subject_id ON quiz_records(subject_id);
 - **キャンセルボタンの Link 化**: 4フォームの `<button onClick={router.push}>` → `<Link href>`（セマンティクス改善）
 - **その他**: Google SVG に `aria-hidden="true"`、ログアウトボタンに `type="button"` 明示
 
-### Phase 14: 複数科目対応 🚧（未コミット）
+### Phase 14: 複数科目対応 ✅
 
 - **DBスキーマ変更**（`scripts/migrate-subjects.sql`）:
   - `subjects` テーブル新規作成（id, name, display_order）
@@ -257,6 +257,24 @@ CREATE INDEX idx_quiz_records_subject_id ON quiz_records(subject_id);
 - **バリデーション**: `validateSubjectInput()` 追加
 - **テスト更新**: `quiz/actions.test.ts`, `questions/actions.test.ts`, `students/actions.test.ts`, `export-utils.test.ts` を `student_subject_progress` 対応に修正
 - **TeacherHeader**: 「科目管理」ナビリンク追加
+
+### Phase 14.1: バグ修正・生徒管理機能強化 ✅
+
+- **CSV インポート重複エラー修正**: 同一CSVファイル内に同じ `question_id` が複数存在する場合、PostgreSQL の `ON CONFLICT DO UPDATE command cannot affect row a second time` エラーが発生していた問題を修正。upsert 前に `question_id` で重複排除（後勝ち）する処理を追加
+- **グレード分布チャート表示不具合修正**: 生徒数が多い場合（1000件超）、`.in()` クエリが PostgREST の URL 長制限を超えてサイレントに失敗する問題を修正。フィルタなしの場合は `.range()` ページネーション、フィルタありの場合は `.in()` を200件バッチに分割
+- **生徒の編集・削除機能追加**: `/teacher/students/[studentId]/edit` 編集ページ、`StudentForm` を編集モード対応（`initialData` + `studentId` props）、`StudentTable` に編集リンク・削除ボタン追加、`updateStudent` / `deleteStudent` Server Actions 追加
+
+### Phase 14.2: E2Eテスト科目対応 + ユニットテスト追加 ✅
+
+- **E2Eテストのシードデータ科目対応**: `e2e/fixtures/test-data.ts` に `TEST_SUBJECT`（固定UUID）を追加。`GRADE_DEFINITION`・`TEST_QUESTIONS` に `subject_id` 追加。`STUDENT` から `currentGrade` 削除
+- **E2Eシードロジック更新** (`e2e/helpers/seed.ts`):
+  - `seedTestData()`: 科目 upsert を最初に実行、グレード定義の `onConflict` を `subject_id,grade_name` に、問題の `onConflict` を `subject_id,question_id` に変更。生徒 upsert 後に `student_subject_progress` を upsert
+  - `resetStudentChallengeDate()`: `students` テーブル → `student_subject_progress` テーブルの更新に変更
+  - `cleanupTestData()`: テスト科目に紐づく一時グレード定義の削除を追加
+- **教員テスト更新**: `questions.spec.ts` — 科目フィルタ `?subject=` に変更、新規登録で `select#question-subject` による科目選択を追加。`grades.spec.ts` — 新規登録で `select#grade-subject` による科目選択を追加
+- **生徒テスト更新**: `dashboard.spec.ts` — 科目カード表示（`TEST_SUBJECT.name`、グレード、連続合格）の確認に変更、小テスト遷移は `?subject=` 付きURLを確認。`quiz.spec.ts` — `?subject=` 付きURLに変更。`history.spec.ts` — 科目移行に伴い「現在のグレード」アサーションを削除
+- **ユニットテスト追加**: `students/actions.test.ts` に `updateStudent`（5件: 認証・権限・重複・成功・DBエラー）と `deleteStudent`（4件: 認証・権限・成功・DBエラー）のテストを追加
+- **テスト総数**: ユニット 177 → 188件（+11件）、E2E 18件（変更なし）
 
 ---
 
@@ -300,4 +318,4 @@ CREATE TABLE student_subject_progress (
 優先度や実装順は未定。必要に応じて選択。
 
 - **パフォーマンス最適化**: ISR/キャッシュ戦略、画像最適化
-- **E2Eテストの科目対応**: Playwright テスト・シードデータを複数科目対応に更新
+- **教員一覧の編集機能**: 教員の名前・メール編集（現在は一覧・登録・削除のみ）

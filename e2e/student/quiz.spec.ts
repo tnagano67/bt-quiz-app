@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { TEST_SUBJECT } from "../fixtures/test-data";
 import { resetStudentChallengeDate } from "../helpers/seed";
 
 test.describe("小テスト受験", () => {
@@ -8,7 +9,7 @@ test.describe("小テスト受験", () => {
   });
 
   test("小テストを受験して結果が表示される", async ({ page }) => {
-    await page.goto("/student/quiz");
+    await page.goto(`/student/quiz?subject=${TEST_SUBJECT.id}`);
 
     // 問題が読み込まれるまで待機
     await expect(page.getByText(/Q1\./)).toBeVisible({ timeout: 15000 });
@@ -40,7 +41,7 @@ test.describe("小テスト受験", () => {
   });
 
   test("全問未回答では送信できない", async ({ page }) => {
-    await page.goto("/student/quiz");
+    await page.goto(`/student/quiz?subject=${TEST_SUBJECT.id}`);
 
     // 問題が読み込まれるまで待機
     await expect(page.getByText(/Q1\./)).toBeVisible({ timeout: 15000 });

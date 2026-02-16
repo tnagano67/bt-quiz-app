@@ -11,7 +11,12 @@ export const STUDENT = {
   year: 1,
   class: 1,
   number: 99,
-  currentGrade: "10級",
+};
+
+export const TEST_SUBJECT = {
+  id: "e2e-test-subject-0001-0001-000000000001",
+  name: "E2Eテスト科目",
+  display_order: 9999,
 };
 
 export const GRADE_DEFINITION = {
@@ -22,6 +27,7 @@ export const GRADE_DEFINITION = {
   num_questions: 3,
   pass_score: 60,
   required_consecutive_days: 3,
+  subject_id: TEST_SUBJECT.id,
 };
 
 export const TEST_QUESTIONS = Array.from({ length: 10 }, (_, i) => ({
@@ -32,6 +38,7 @@ export const TEST_QUESTIONS = Array.from({ length: 10 }, (_, i) => ({
   choice_3: `選択肢C-${i + 1}`,
   choice_4: `選択肢D-${i + 1}`,
   correct_answer: 1,
+  subject_id: TEST_SUBJECT.id,
 }));
 
 // テストで一時的に作成するデータの識別用
