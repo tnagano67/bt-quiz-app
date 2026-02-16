@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import GradeForm from "@/components/GradeForm";
+import SubjectTable from "@/components/SubjectTable";
 import type { Subject } from "@/lib/types/database";
 
-export default async function NewGradePage() {
+export default async function TeacherSubjectsPage() {
   const supabase = await createClient();
 
   const {
@@ -26,8 +27,19 @@ export default async function NewGradePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-bold text-gray-800">グレードを追加</h2>
-      <GradeForm mode="create" subjects={subjects} />
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-800">科目管理</h2>
+        <Link
+          href="/teacher/subjects/new"
+          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
+        >
+          追加
+        </Link>
+      </div>
+
+      <p className="text-xs text-gray-500">{subjects.length}件の科目</p>
+
+      <SubjectTable subjects={subjects} />
     </div>
   );
 }

@@ -4,15 +4,20 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createGrade, updateGrade } from "@/app/teacher/grades/actions";
-import type { GradeDefinition } from "@/lib/types/database";
+import type { GradeDefinition, Subject } from "@/lib/types/database";
 
 type Props = {
   mode: "create" | "edit";
   defaultValues?: GradeDefinition;
+  subjects?: Subject[];
+  subjectName?: string;
 };
 
-export default function GradeForm({ mode, defaultValues }: Props) {
+export default function GradeForm({ mode, defaultValues, subjects, subjectName }: Props) {
   const router = useRouter();
+  const [subjectId, setSubjectId] = useState(
+    defaultValues?.subject_id ?? subjects?.[0]?.id ?? ""
+  );
   const [gradeName, setGradeName] = useState(
     defaultValues?.grade_name ?? ""
   );
@@ -41,6 +46,10 @@ export default function GradeForm({ mode, defaultValues }: Props) {
     e.preventDefault();
     setError("");
 
+    if (mode === "create" && !subjectId) {
+      setError("科目を選択してください");
+      return;
+    }
     if (mode === "create" && !gradeName.trim()) {
       setError("グレード名を入力してください");
       return;
@@ -91,7 +100,7 @@ export default function GradeForm({ mode, defaultValues }: Props) {
 
     const result =
       mode === "create"
-        ? await createGrade({ ...input, grade_name: gradeName.trim() })
+        ? await createGrade({ ...input, subject_id: subjectId, grade_name: gradeName.trim() })
         : await updateGrade(defaultValues!.id, input);
 
     if (!result.success) {
@@ -113,6 +122,30 @@ export default function GradeForm({ mode, defaultValues }: Props) {
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4">
+          {/* 科目選択 */}
+          <div>
+            <label htmlFor="grade-subject" className="mb-1 block text-xs font-medium text-gray-600">
+              科目
+            </label>
+            {mode === "create" && subjects ? (
+              <select
+                id="grade-subject"
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                className="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800"
+                required
+              >
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-sm text-gray-700">{subjectName}</p>
+            )}
+          </div>
+
           <div>
             <label htmlFor="grade-name" className="mb-1 block text-xs font-medium text-gray-600">
               グレード名

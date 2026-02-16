@@ -93,6 +93,29 @@ export function validateStudentInput(
   return { valid: true };
 }
 
+type SubjectRow = {
+  name: string;
+  display_order: number;
+};
+
+export function validateSubjectInput(
+  row: SubjectRow,
+  rowNum?: number
+): ValidationResult {
+  const prefix = rowNum != null ? `行${rowNum}: ` : "";
+
+  if (!row.name.trim()) {
+    return { valid: false, error: `${prefix}科目名が空です` };
+  }
+  if (!Number.isInteger(row.display_order) || row.display_order < 0) {
+    return {
+      valid: false,
+      error: `${prefix}表示順は0以上の整数が必要です`,
+    };
+  }
+  return { valid: true };
+}
+
 export function validateTeacherInput(
   row: TeacherRow,
   rowNum?: number

@@ -16,6 +16,7 @@ const mockSetup = createMockSupabase({
       insert: { data: null, error: null },
       upsert: { data: null, error: null },
       delete: { data: null, error: null },
+      update: { data: null, error: null },
     },
   },
 });
@@ -26,6 +27,8 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 // 動的 import で Server Actions を読み込み（モック適用後）
 const { createQuestion, updateQuestion, importQuestions, deleteQuestion } =
   await import("./actions");
+
+const subjectId = "sub1";
 
 describe("createQuestion", () => {
   beforeEach(() => {
@@ -47,6 +50,7 @@ describe("createQuestion", () => {
       error: null,
     });
     const result = await createQuestion({
+      subject_id: subjectId,
       question_id: 1,
       question_text: "テスト",
       choice_1: "A",
@@ -65,6 +69,7 @@ describe("createQuestion", () => {
       error: null,
     });
     const result = await createQuestion({
+      subject_id: subjectId,
       question_id: 1,
       question_text: "テスト",
       choice_1: "A",
@@ -83,6 +88,7 @@ describe("createQuestion", () => {
       error: null,
     });
     const result = await createQuestion({
+      subject_id: subjectId,
       question_id: 1,
       question_text: "テスト",
       choice_1: "A",
@@ -105,6 +111,7 @@ describe("createQuestion", () => {
       error: null,
     });
     const result = await createQuestion({
+      subject_id: subjectId,
       question_id: 1,
       question_text: "テスト問題",
       choice_1: "A",
@@ -126,6 +133,7 @@ describe("createQuestion", () => {
       error: { message: "db error" },
     });
     const result = await createQuestion({
+      subject_id: subjectId,
       question_id: 1,
       question_text: "テスト",
       choice_1: "A",
@@ -182,7 +190,7 @@ describe("importQuestions", () => {
         correct_answer: 1,
       },
     ];
-    const result = await importQuestions(rows);
+    const result = await importQuestions(rows, subjectId);
     expect(result.errors.length).toBe(1);
     expect(result.errors[0]).toContain("行2");
     expect(result.inserted).toBe(1);
@@ -218,7 +226,7 @@ describe("importQuestions", () => {
         correct_answer: 2,
       },
     ];
-    const result = await importQuestions(rows);
+    const result = await importQuestions(rows, subjectId);
     expect(result.success).toBe(true);
     expect(result.inserted).toBe(1);
     expect(result.updated).toBe(1);
@@ -236,7 +244,7 @@ describe("importQuestions", () => {
         correct_answer: 1,
       },
     ];
-    const result = await importQuestions(rows);
+    const result = await importQuestions(rows, subjectId);
     expect(result.inserted).toBe(0);
     expect(result.updated).toBe(0);
     expect(result.errors.length).toBe(1);
@@ -270,7 +278,7 @@ describe("updateQuestion", () => {
       data: null,
       error: null,
     });
-    const result = await updateQuestion(999, validInput);
+    const result = await updateQuestion(999, subjectId, validInput);
     expect(result.success).toBe(false);
     expect(result.message).toContain("見つかりません");
   });
@@ -284,7 +292,7 @@ describe("updateQuestion", () => {
       data: null,
       error: null,
     });
-    const result = await updateQuestion(1, validInput);
+    const result = await updateQuestion(1, subjectId, validInput);
     expect(result.success).toBe(true);
   });
 
@@ -297,7 +305,7 @@ describe("updateQuestion", () => {
       data: null,
       error: { message: "db error" },
     });
-    const result = await updateQuestion(1, validInput);
+    const result = await updateQuestion(1, subjectId, validInput);
     expect(result.success).toBe(false);
     expect(result.message).toContain("失敗");
   });
@@ -321,7 +329,7 @@ describe("deleteQuestion", () => {
       data: null,
       error: null,
     });
-    const result = await deleteQuestion(999);
+    const result = await deleteQuestion(999, subjectId);
     expect(result.success).toBe(false);
     expect(result.message).toContain("見つかりません");
   });
@@ -335,7 +343,7 @@ describe("deleteQuestion", () => {
       data: null,
       error: null,
     });
-    const result = await deleteQuestion(1);
+    const result = await deleteQuestion(1, subjectId);
     expect(result.success).toBe(true);
   });
 });

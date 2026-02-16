@@ -7,7 +7,12 @@ import {
   formatStudentExportRow,
   formatRecordExportRow,
 } from "@/lib/export-utils";
-import type { Student, QuizRecord, GradeDefinition } from "@/lib/types/database";
+import type {
+  Student,
+  StudentSubjectProgress,
+  QuizRecord,
+  GradeDefinition,
+} from "@/lib/types/database";
 
 async function verifyTeacher() {
   const supabase = await createClient();
@@ -33,6 +38,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl;
   const type = searchParams.get("type");
+  const subjectId = searchParams.get("subject");
   const year = searchParams.get("year");
   const cls = searchParams.get("class");
   const gradeFrom = searchParams.get("gradeFrom");
@@ -40,19 +46,24 @@ export async function GET(request: NextRequest) {
   const dateFrom = searchParams.get("dateFrom");
   const dateTo = searchParams.get("dateTo");
 
-  // グレード定義を取得
-  const { data: gradeData } = await supabase
+  // グレード定義を取得（科目フィルタ）
+  let gradeQuery = supabase
     .from("grade_definitions")
     .select("*")
     .order("display_order", { ascending: true });
+  if (subjectId) {
+    gradeQuery = gradeQuery.eq("subject_id", subjectId);
+  }
+  const { data: gradeData } = await gradeQuery;
   const allGrades = (gradeData ?? []) as GradeDefinition[];
   const gradeNames = allGrades.map((g) => g.grade_name);
   const gradeFilter = getGradeFilter(gradeNames, gradeFrom, gradeTo);
 
   if (type === "students") {
-    return handleStudentsExport(supabase, { year, cls, gradeFilter });
+    return handleStudentsExport(supabase, { subjectId, year, cls, gradeFilter });
   } else if (type === "records") {
     return handleRecordsExport(supabase, {
+      subjectId,
       year,
       cls,
       gradeFilter,
@@ -68,7 +79,12 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 async function handleStudentsExport(
   supabase: SupabaseClient,
-  filters: { year: string | null; cls: string | null; gradeFilter: string[] | null }
+  filters: {
+    subjectId: string | null;
+    year: string | null;
+    cls: string | null;
+    gradeFilter: string[] | null;
+  }
 ) {
   let query = supabase
     .from("students")
@@ -79,7 +95,25 @@ async function handleStudentsExport(
 
   if (filters.year) query = query.eq("year", Number(filters.year));
   if (filters.cls) query = query.eq("class", Number(filters.cls));
-  if (filters.gradeFilter) query = query.in("current_grade", filters.gradeFilter);
+
+  // グレードフィルターは progress 経由
+  if (filters.gradeFilter && filters.subjectId) {
+    const { data: progressData } = await supabase
+      .from("student_subject_progress")
+      .select("student_id")
+      .eq("subject_id", filters.subjectId)
+      .in("current_grade", filters.gradeFilter);
+
+    const filteredIds = (progressData ?? []).map((p) => p.student_id);
+    if (filteredIds.length === 0) {
+      const csv = generateCsvText([
+        ["学年", "組", "番号", "氏名", "現在グレード", "連続合格日数",
+          "最終挑戦日", "受験回数", "平均点", "最高点", "合格率"],
+      ]);
+      return createCsvResponse(csv, "students_export.csv");
+    }
+    query = query.in("id", filteredIds);
+  }
 
   const { data: studentData, error } = await query;
   if (error) {
@@ -87,14 +121,34 @@ async function handleStudentsExport(
   }
   const students = (studentData ?? []) as Student[];
 
-  // 全対象生徒の受験記録を取得
+  // 選択科目の progress を取得
   const studentIds = students.map((s) => s.id);
+  const progressMap = new Map<string, StudentSubjectProgress>();
+  if (studentIds.length > 0 && filters.subjectId) {
+    const { data: progressData } = await supabase
+      .from("student_subject_progress")
+      .select("*")
+      .eq("subject_id", filters.subjectId)
+      .in("student_id", studentIds);
+
+    for (const p of (progressData ?? []) as StudentSubjectProgress[]) {
+      progressMap.set(p.student_id, p);
+    }
+  }
+
+  // 全対象生徒の受験記録を取得
   let allRecords: QuizRecord[] = [];
   if (studentIds.length > 0) {
-    const { data: records } = await supabase
+    let recordQuery = supabase
       .from("quiz_records")
       .select("student_id, score, passed")
       .in("student_id", studentIds);
+
+    if (filters.subjectId) {
+      recordQuery = recordQuery.eq("subject_id", filters.subjectId);
+    }
+
+    const { data: records } = await recordQuery;
     allRecords = (records ?? []) as QuizRecord[];
   }
 
@@ -116,7 +170,8 @@ async function handleStudentsExport(
   const rows: (string | number)[][] = students.map((st) => {
     const records = recordsByStudent.get(st.id);
     const stats = records ? calculateStudentStats(records) : null;
-    return formatStudentExportRow(st, stats);
+    const progress = progressMap.get(st.id) ?? null;
+    return formatStudentExportRow(st, progress, stats);
   });
 
   const csv = generateCsvText([header, ...rows]);
@@ -126,6 +181,7 @@ async function handleStudentsExport(
 async function handleRecordsExport(
   supabase: SupabaseClient,
   filters: {
+    subjectId: string | null;
     year: string | null;
     cls: string | null;
     gradeFilter: string[] | null;
@@ -136,14 +192,31 @@ async function handleRecordsExport(
   // まず対象生徒を取得
   let studentQuery = supabase
     .from("students")
-    .select("id, year, class, number, name, current_grade")
+    .select("id, year, class, number, name")
     .order("year")
     .order("class")
     .order("number");
 
   if (filters.year) studentQuery = studentQuery.eq("year", Number(filters.year));
   if (filters.cls) studentQuery = studentQuery.eq("class", Number(filters.cls));
-  if (filters.gradeFilter) studentQuery = studentQuery.in("current_grade", filters.gradeFilter);
+
+  // グレードフィルターは progress 経由
+  if (filters.gradeFilter && filters.subjectId) {
+    const { data: progressData } = await supabase
+      .from("student_subject_progress")
+      .select("student_id")
+      .eq("subject_id", filters.subjectId)
+      .in("current_grade", filters.gradeFilter);
+
+    const filteredIds = (progressData ?? []).map((p) => p.student_id);
+    if (filteredIds.length === 0) {
+      const csv = generateCsvText([
+        ["学年", "組", "番号", "氏名", "受験日", "グレード", "スコア", "合否"],
+      ]);
+      return createCsvResponse(csv, "records_export.csv");
+    }
+    studentQuery = studentQuery.in("id", filteredIds);
+  }
 
   const { data: studentData, error: studentError } = await studentQuery;
   if (studentError) {
@@ -151,7 +224,7 @@ async function handleRecordsExport(
   }
   const students = (studentData ?? []) as Pick<
     Student,
-    "id" | "year" | "class" | "number" | "name" | "current_grade"
+    "id" | "year" | "class" | "number" | "name"
   >[];
 
   const studentIds = students.map((s) => s.id);
@@ -168,6 +241,9 @@ async function handleRecordsExport(
     .in("student_id", studentIds)
     .order("taken_at", { ascending: false });
 
+  if (filters.subjectId) {
+    recordQuery = recordQuery.eq("subject_id", filters.subjectId);
+  }
   if (filters.dateFrom) {
     recordQuery = recordQuery.gte("taken_at", `${filters.dateFrom}T00:00:00+09:00`);
   }

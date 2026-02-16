@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { countExportRows, getGradeNames } from "./actions";
+import { countExportRows, getGradeNames, getSubjects } from "./actions";
+import type { Subject } from "@/lib/types/database";
 
 type ExportType = "students" | "records";
 
 export default function ExportPage() {
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjectId, setSubjectId] = useState("");
   const [exportType, setExportType] = useState<ExportType>("students");
   const [year, setYear] = useState("");
   const [cls, setCls] = useState("");
@@ -17,20 +20,34 @@ export default function ExportPage() {
   const [count, setCount] = useState<number | null>(null);
   const [counting, setCounting] = useState(false);
 
+  // 科目一覧を取得
   useEffect(() => {
-    getGradeNames().then(setGradeNames);
-  }, []);
+    getSubjects().then((data) => {
+      setSubjects(data);
+      if (data.length > 0 && !subjectId) {
+        setSubjectId(data[0].id);
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 科目変更時にグレード一覧を更新
+  useEffect(() => {
+    if (subjectId) {
+      getGradeNames(subjectId).then(setGradeNames);
+    }
+  }, [subjectId]);
 
   // フィルター変更時にカウントをリセット
   useEffect(() => {
     setCount(null);
-  }, [exportType, year, cls, gradeFrom, gradeTo, dateFrom, dateTo]);
+  }, [exportType, subjectId, year, cls, gradeFrom, gradeTo, dateFrom, dateTo]);
 
   const handleCount = useCallback(async () => {
     setCounting(true);
     try {
       const result = await countExportRows({
         type: exportType,
+        subjectId: subjectId || undefined,
         year: year || undefined,
         cls: cls || undefined,
         gradeFrom: gradeFrom || undefined,
@@ -44,11 +61,12 @@ export default function ExportPage() {
     } finally {
       setCounting(false);
     }
-  }, [exportType, year, cls, gradeFrom, gradeTo, dateFrom, dateTo]);
+  }, [exportType, subjectId, year, cls, gradeFrom, gradeTo, dateFrom, dateTo]);
 
   const downloadUrl = (() => {
     const params = new URLSearchParams();
     params.set("type", exportType);
+    if (subjectId) params.set("subject", subjectId);
     if (year) params.set("year", year);
     if (cls) params.set("class", cls);
     if (gradeFrom) params.set("gradeFrom", gradeFrom);
@@ -94,6 +112,32 @@ export default function ExportPage() {
       {/* フィルター */}
       <div className="rounded-xl border border-gray-200 bg-white p-4">
         <p className="mb-3 text-sm font-bold text-gray-700">フィルター</p>
+
+        {/* 科目選択 */}
+        {subjects.length > 0 && (
+          <div className="mb-3">
+            <label htmlFor="export-subject" className="mb-1 block text-xs text-gray-600">
+              科目
+            </label>
+            <select
+              id="export-subject"
+              value={subjectId}
+              onChange={(e) => {
+                setSubjectId(e.target.value);
+                setGradeFrom("");
+                setGradeTo("");
+              }}
+              className="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
+            >
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
             <label htmlFor="export-year" className="mb-1 block text-xs text-gray-600">学年</label>
@@ -230,7 +274,6 @@ export default function ExportPage() {
           <p className="mt-2 text-xs text-gray-600">
             条件に該当するデータがありません。フィルターを変更してください。
           </p>
-
         )}
       </div>
     </div>

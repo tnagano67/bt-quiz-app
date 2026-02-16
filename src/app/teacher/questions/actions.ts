@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { validateQuestionInput } from "@/lib/validation";
 
 type QuestionInput = {
+  subject_id: string;
   question_id: number;
   question_text: string;
   choice_1: string;
@@ -47,21 +48,23 @@ export async function createQuestion(input: QuestionInput): Promise<Result> {
 
   const supabase = await createClient();
 
-  // question_id の重複チェック
+  // question_id の重複チェック（同一科目内）
   const { data: existing } = await supabase
     .from("questions")
     .select("id")
+    .eq("subject_id", input.subject_id)
     .eq("question_id", input.question_id)
     .single();
 
   if (existing) {
     return {
       success: false,
-      message: `問題ID ${input.question_id} はすでに使用されています`,
+      message: `問題ID ${input.question_id} はこの科目ですでに使用されています`,
     };
   }
 
   const { error: insertError } = await supabase.from("questions").insert({
+    subject_id: input.subject_id,
     question_id: input.question_id,
     question_text: input.question_text,
     choice_1: input.choice_1,
@@ -81,7 +84,8 @@ export async function createQuestion(input: QuestionInput): Promise<Result> {
 
 export async function updateQuestion(
   questionId: number,
-  input: Omit<QuestionInput, "question_id">
+  subjectId: string,
+  input: Omit<QuestionInput, "question_id" | "subject_id">
 ): Promise<Result> {
   const { error } = await verifyTeacher();
   if (error) return error;
@@ -91,6 +95,7 @@ export async function updateQuestion(
   const { data: existing } = await supabase
     .from("questions")
     .select("id")
+    .eq("subject_id", subjectId)
     .eq("question_id", questionId)
     .single();
 
@@ -108,6 +113,7 @@ export async function updateQuestion(
       choice_4: input.choice_4,
       correct_answer: input.correct_answer,
     })
+    .eq("subject_id", subjectId)
     .eq("question_id", questionId);
 
   if (updateError) {
@@ -127,7 +133,8 @@ type ImportResult = {
 };
 
 export async function importQuestions(
-  rows: QuestionInput[]
+  rows: Omit<QuestionInput, "subject_id">[],
+  subjectId: string
 ): Promise<ImportResult> {
   const { error } = await verifyTeacher();
   if (error) {
@@ -144,7 +151,7 @@ export async function importQuestions(
   const errors: string[] = [];
 
   // バリデーション
-  const validRows: QuestionInput[] = [];
+  const validRows: Omit<QuestionInput, "subject_id">[] = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 1;
@@ -166,17 +173,19 @@ export async function importQuestions(
   const { data: existingRows } = await supabase
     .from("questions")
     .select("question_id")
+    .eq("subject_id", subjectId)
     .in("question_id", questionIds);
 
   const existingIds = new Set(
     (existingRows ?? []).map((r) => r.question_id)
   );
 
-  // upsert で一括処理（question_id が既存なら更新、なければ挿入）
+  // upsert で一括処理（subject_id + question_id が既存なら更新）
   const { error: upsertError } = await supabase
     .from("questions")
     .upsert(
       validRows.map((row) => ({
+        subject_id: subjectId,
         question_id: row.question_id,
         question_text: row.question_text,
         choice_1: row.choice_1,
@@ -185,7 +194,7 @@ export async function importQuestions(
         choice_4: row.choice_4,
         correct_answer: row.correct_answer,
       })),
-      { onConflict: "question_id" }
+      { onConflict: "subject_id,question_id" }
     );
 
   let inserted = 0;
@@ -212,7 +221,7 @@ export async function importQuestions(
   };
 }
 
-export async function deleteQuestion(questionId: number): Promise<Result> {
+export async function deleteQuestion(questionId: number, subjectId: string): Promise<Result> {
   const { error } = await verifyTeacher();
   if (error) return error;
 
@@ -221,6 +230,7 @@ export async function deleteQuestion(questionId: number): Promise<Result> {
   const { data: existing } = await supabase
     .from("questions")
     .select("id")
+    .eq("subject_id", subjectId)
     .eq("question_id", questionId)
     .single();
 
@@ -231,6 +241,7 @@ export async function deleteQuestion(questionId: number): Promise<Result> {
   const { error: deleteError } = await supabase
     .from("questions")
     .delete()
+    .eq("subject_id", subjectId)
     .eq("question_id", questionId);
 
   if (deleteError) {

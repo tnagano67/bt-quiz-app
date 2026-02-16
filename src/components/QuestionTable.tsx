@@ -9,9 +9,9 @@ type Props = {
 };
 
 export default function QuestionTable({ questions }: Props) {
-  const handleDelete = async (questionId: number) => {
-    if (!confirm(`問題ID ${questionId} を削除しますか？`)) return;
-    const result = await deleteQuestion(questionId);
+  const handleDelete = async (q: Question) => {
+    if (!confirm(`問題ID ${q.question_id} を削除しますか？`)) return;
+    const result = await deleteQuestion(q.question_id, q.subject_id);
     if (!result.success) {
       alert(result.message ?? "削除に失敗しました");
     }
@@ -73,7 +73,7 @@ export default function QuestionTable({ questions }: Props) {
                     編集
                   </Link>
                   <button
-                    onClick={() => handleDelete(q.question_id)}
+                    onClick={() => handleDelete(q)}
                     className="text-xs text-red-500 hover:text-red-700"
                   >
                     削除

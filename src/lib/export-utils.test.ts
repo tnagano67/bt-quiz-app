@@ -5,7 +5,7 @@ import {
   formatStudentExportRow,
   formatRecordExportRow,
 } from "./export-utils";
-import type { Student } from "@/lib/types/database";
+import type { Student, StudentSubjectProgress } from "@/lib/types/database";
 
 describe("getGradeFilter", () => {
   const gradeNames = ["10級", "9級", "8級", "7級", "6級", "5級"];
@@ -132,6 +132,14 @@ describe("formatStudentExportRow", () => {
     class: 3,
     number: 15,
     name: "田中太郎",
+    created_at: "2024-01-01",
+    updated_at: "2024-01-01",
+  };
+
+  const baseProgress: StudentSubjectProgress = {
+    id: "p1",
+    student_id: "s1",
+    subject_id: "sub1",
     current_grade: "8級",
     consecutive_pass_days: 3,
     last_challenge_date: "2024-06-01",
@@ -140,7 +148,7 @@ describe("formatStudentExportRow", () => {
   };
 
   it("統計ありの行フォーマット", () => {
-    const row = formatStudentExportRow(baseStudent, {
+    const row = formatStudentExportRow(baseStudent, baseProgress, {
       count: 10,
       totalScore: 800,
       maxScore: 100,
@@ -162,16 +170,23 @@ describe("formatStudentExportRow", () => {
   });
 
   it("統計が null の場合はゼロ値", () => {
-    const row = formatStudentExportRow(baseStudent, null);
+    const row = formatStudentExportRow(baseStudent, baseProgress, null);
     expect(row[7]).toBe(0); // count
     expect(row[8]).toBe(0); // avg
     expect(row[9]).toBe(0); // max
     expect(row[10]).toBe("0%"); // passRate
   });
 
+  it("progress が null → デフォルト値", () => {
+    const row = formatStudentExportRow(baseStudent, null, null);
+    expect(row[4]).toBe("-"); // current_grade
+    expect(row[5]).toBe(0); // consecutive_pass_days
+    expect(row[6]).toBe(""); // last_challenge_date
+  });
+
   it("last_challenge_date が null → 空文字", () => {
-    const student = { ...baseStudent, last_challenge_date: null };
-    const row = formatStudentExportRow(student, null);
+    const progress = { ...baseProgress, last_challenge_date: null };
+    const row = formatStudentExportRow(baseStudent, progress, null);
     expect(row[6]).toBe("");
   });
 });

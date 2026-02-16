@@ -16,6 +16,15 @@ const mockSetup = createMockSupabase({
         data: {
           id: "s1",
           email: "student@example.com",
+        },
+        error: null,
+      },
+    },
+    student_subject_progress: {
+      select: {
+        data: {
+          student_id: "s1",
+          subject_id: "sub1",
           current_grade: "10級",
           consecutive_pass_days: 0,
           last_challenge_date: null,
@@ -67,6 +76,7 @@ const { saveQuizResult } = await import("./actions");
 
 const baseInput = {
   studentId: "s1",
+  subjectId: "sub1",
   grade: "10級",
   score: 100,
   passed: true,
@@ -87,13 +97,20 @@ describe("saveQuizResult", () => {
       data: {
         id: "s1",
         email: "student@example.com",
+      },
+      error: null,
+    });
+    mockSetup.setTableResponse("student_subject_progress", "select", {
+      data: {
+        student_id: "s1",
+        subject_id: "sub1",
         current_grade: "10級",
         consecutive_pass_days: 0,
         last_challenge_date: null,
       },
       error: null,
     });
-    mockSetup.setTableResponse("students", "update", {
+    mockSetup.setTableResponse("student_subject_progress", "update", {
       data: null,
       error: null,
     });
@@ -147,11 +164,21 @@ describe("saveQuizResult", () => {
     expect(result.message).toContain("生徒情報");
   });
 
+  it("進捗情報なし → エラー", async () => {
+    mockSetup.setTableResponse("student_subject_progress", "select", {
+      data: null,
+      error: null,
+    });
+    const result = await saveQuizResult(baseInput);
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("進捗情報");
+  });
+
   it("日次制限 → skipped", async () => {
-    mockSetup.setTableResponse("students", "select", {
+    mockSetup.setTableResponse("student_subject_progress", "select", {
       data: {
-        id: "s1",
-        email: "student@example.com",
+        student_id: "s1",
+        subject_id: "sub1",
         current_grade: "10級",
         consecutive_pass_days: 0,
         last_challenge_date: "2024-06-15", // 今日と同じ
@@ -189,8 +216,8 @@ describe("saveQuizResult", () => {
     expect(result.message).toContain("保存");
   });
 
-  it("students 更新エラー → 失敗", async () => {
-    mockSetup.setTableResponse("students", "update", {
+  it("progress 更新エラー → 失敗", async () => {
+    mockSetup.setTableResponse("student_subject_progress", "update", {
       data: null,
       error: { message: "update error" },
     });

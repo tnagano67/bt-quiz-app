@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 const navItems = [
   { href: "/teacher", label: "ホーム" },
   { href: "/teacher/students", label: "生徒一覧" },
+  { href: "/teacher/subjects", label: "科目管理" },
   { href: "/teacher/questions", label: "問題管理" },
   { href: "/teacher/grades", label: "グレード管理" },
   { href: "/teacher/export", label: "エクスポート" },

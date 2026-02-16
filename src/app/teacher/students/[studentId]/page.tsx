@@ -4,14 +4,24 @@ import { getRecentDates } from "@/lib/date-utils";
 import ScoreChart from "@/components/ScoreChart";
 import StatisticsCard from "@/components/StatisticsCard";
 import Link from "next/link";
-import type { Student, QuizRecord } from "@/lib/types/database";
+import type {
+  Student,
+  Subject,
+  StudentSubjectProgress,
+  QuizRecord,
+} from "@/lib/types/database";
 
 type Props = {
   params: Promise<{ studentId: string }>;
+  searchParams: Promise<{ subject?: string }>;
 };
 
-export default async function StudentDetailPage({ params }: Props) {
+export default async function StudentDetailPage({
+  params,
+  searchParams,
+}: Props) {
   const { studentId } = await params;
+  const sp = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -50,17 +60,42 @@ export default async function StudentDetailPage({ params }: Props) {
 
   const student = studentData as Student;
 
+  // 科目一覧を取得
+  const { data: subjectData } = await supabase
+    .from("subjects")
+    .select("*")
+    .order("display_order", { ascending: true });
+  const subjects = (subjectData ?? []) as Subject[];
+  const selectedSubjectId = sp.subject ?? subjects[0]?.id ?? "";
+
+  // 選択科目の進捗を取得
+  let progress: StudentSubjectProgress | null = null;
+  if (selectedSubjectId) {
+    const { data: progressData } = await supabase
+      .from("student_subject_progress")
+      .select("*")
+      .eq("student_id", student.id)
+      .eq("subject_id", selectedSubjectId)
+      .single();
+    progress = (progressData as StudentSubjectProgress) ?? null;
+  }
+
   // 直近30日間の成績を取得
   const recentDates = getRecentDates(30);
   const oldestDate = recentDates[recentDates.length - 1];
 
-  const { data: records } = await supabase
+  let recordQuery = supabase
     .from("quiz_records")
     .select("*")
     .eq("student_id", student.id)
     .gte("taken_at", `${oldestDate}T00:00:00+09:00`)
     .order("taken_at", { ascending: false });
 
+  if (selectedSubjectId) {
+    recordQuery = recordQuery.eq("subject_id", selectedSubjectId);
+  }
+
+  const { data: records } = await recordQuery;
   const allRecords = (records ?? []) as QuizRecord[];
 
   // 統計計算
@@ -119,22 +154,43 @@ export default async function StudentDetailPage({ params }: Props) {
           </div>
           <div>
             <p className="text-xs text-teal-600">現在のグレード</p>
-            <p className="font-medium text-gray-800">{student.current_grade}</p>
+            <p className="font-medium text-gray-800">
+              {progress?.current_grade ?? "-"}
+            </p>
           </div>
           <div>
             <p className="text-xs text-teal-600">連続合格日数</p>
             <p className="font-medium text-gray-800">
-              {student.consecutive_pass_days}日
+              {progress?.consecutive_pass_days ?? 0}日
             </p>
           </div>
           <div>
             <p className="text-xs text-teal-600">最終挑戦日</p>
             <p className="font-medium text-gray-800">
-              {student.last_challenge_date ?? "未受験"}
+              {progress?.last_challenge_date ?? "未受験"}
             </p>
           </div>
         </div>
       </div>
+
+      {/* 科目タブ */}
+      {subjects.length > 1 && (
+        <div className="flex gap-2">
+          {subjects.map((s) => (
+            <Link
+              key={s.id}
+              href={`/teacher/students/${studentId}?subject=${s.id}`}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                s.id === selectedSubjectId
+                  ? "bg-teal-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {s.name}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* 統計 */}
       {totalAttempts > 0 ? (

@@ -1,4 +1,4 @@
-import type { Student, QuizRecord } from "@/lib/types/database";
+import type { Student, StudentSubjectProgress, QuizRecord } from "@/lib/types/database";
 
 /**
  * グレード名のリストから範囲フィルタを生成する。
@@ -52,6 +52,7 @@ export function calculateStudentStats(
  */
 export function formatStudentExportRow(
   student: Student,
+  progress: StudentSubjectProgress | null,
   stats: StudentStats | null
 ): (string | number)[] {
   const count = stats?.count ?? 0;
@@ -65,9 +66,9 @@ export function formatStudentExportRow(
     student.class,
     student.number,
     student.name,
-    student.current_grade,
-    student.consecutive_pass_days,
-    student.last_challenge_date ?? "",
+    progress?.current_grade ?? "-",
+    progress?.consecutive_pass_days ?? 0,
+    progress?.last_challenge_date ?? "",
     count,
     avg,
     max,

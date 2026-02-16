@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { importQuestions } from "@/app/teacher/questions/actions";
+import type { Subject } from "@/lib/types/database";
 
 type ParsedRow = {
   question_id: number;
@@ -29,10 +30,16 @@ import { parseCsvRows } from "@/lib/csv-utils";
 
 type Mode = "closed" | "menu" | "csv";
 
-export default function CsvImport() {
+type Props = {
+  subjects: Subject[];
+  selectedSubjectId: string;
+};
+
+export default function CsvImport({ subjects, selectedSubjectId }: Props) {
   const [mode, setMode] = useState<Mode>("closed");
   const [state, setState] = useState<ImportState>({ phase: "idle" });
   const [parseError, setParseError] = useState<string | null>(null);
+  const [importSubjectId, setImportSubjectId] = useState(selectedSubjectId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -146,7 +153,7 @@ export default function CsvImport() {
     const { rows } = state;
 
     setState({ phase: "importing" });
-    const result = await importQuestions(rows);
+    const result = await importQuestions(rows, importSubjectId);
     setState({
       phase: "done",
       inserted: result.inserted,
@@ -209,6 +216,27 @@ export default function CsvImport() {
           閉じる
         </button>
       </div>
+
+      {/* 科目選択 */}
+      {(state.phase === "idle" || parseError) && subjects.length > 1 && (
+        <div className="mb-3">
+          <label htmlFor="import-subject" className="mb-1 block text-xs font-medium text-gray-600">
+            インポート先の科目
+          </label>
+          <select
+            id="import-subject"
+            value={importSubjectId}
+            onChange={(e) => setImportSubjectId(e.target.value)}
+            className="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800"
+          >
+            {subjects.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* ファイル選択 */}
       {(state.phase === "idle" || parseError) && (

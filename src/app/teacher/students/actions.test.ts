@@ -13,11 +13,17 @@ const mockSetup = createMockSupabase({
     teachers: { select: { data: { id: "t1" }, error: null } },
     students: {
       select: { data: null, error: null },
-      insert: { data: null, error: null },
+      insert: { data: { id: "new-id" }, error: null },
       update: { data: null, error: null },
+    },
+    subjects: {
+      select: { data: [{ id: "sub1" }], error: null },
     },
     grade_definitions: {
       select: { data: { grade_name: "10級" }, error: null },
+    },
+    student_subject_progress: {
+      insert: { data: null, error: null },
     },
   },
 });
@@ -51,11 +57,19 @@ describe("createStudent", () => {
       error: null,
     });
     mockSetup.setTableResponse("students", "insert", {
-      data: null,
+      data: { id: "new-id" },
+      error: null,
+    });
+    mockSetup.setTableResponse("subjects", "select", {
+      data: [{ id: "sub1" }],
       error: null,
     });
     mockSetup.setTableResponse("grade_definitions", "select", {
       data: { grade_name: "10級" },
+      error: null,
+    });
+    mockSetup.setTableResponse("student_subject_progress", "insert", {
+      data: null,
       error: null,
     });
   });
@@ -122,15 +136,23 @@ describe("importStudents", () => {
       error: null,
     });
     mockSetup.setTableResponse("students", "insert", {
-      data: null,
+      data: [{ id: "new-id" }],
       error: null,
     });
     mockSetup.setTableResponse("students", "update", {
       data: null,
       error: null,
     });
+    mockSetup.setTableResponse("subjects", "select", {
+      data: [{ id: "sub1" }],
+      error: null,
+    });
     mockSetup.setTableResponse("grade_definitions", "select", {
       data: { grade_name: "10級" },
+      error: null,
+    });
+    mockSetup.setTableResponse("student_subject_progress", "insert", {
+      data: null,
       error: null,
     });
   });

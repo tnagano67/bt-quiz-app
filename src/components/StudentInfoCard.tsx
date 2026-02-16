@@ -1,7 +1,8 @@
-import type { Student, GradeDefinition } from "@/lib/types/database";
+import type { Student, StudentSubjectProgress, GradeDefinition } from "@/lib/types/database";
 
 type Props = {
   student: Student;
+  progress: StudentSubjectProgress | null;
   currentGrade: GradeDefinition;
   nextGrade: GradeDefinition | null;
   hasTakenToday: boolean;
@@ -9,13 +10,14 @@ type Props = {
 
 export default function StudentInfoCard({
   student,
+  progress,
   currentGrade,
   nextGrade,
   hasTakenToday,
 }: Props) {
   const remainingDays = Math.max(
     0,
-    currentGrade.required_consecutive_days - student.consecutive_pass_days
+    currentGrade.required_consecutive_days - (progress?.consecutive_pass_days ?? 0)
   );
 
   return (
@@ -28,13 +30,13 @@ export default function StudentInfoCard({
         <div>
           <dt className="text-gray-500">現在のグレード</dt>
           <dd className="text-lg font-bold text-blue-600">
-            {student.current_grade}
+            {progress?.current_grade ?? "-"}
           </dd>
         </div>
         <div>
           <dt className="text-gray-500">連続合格日数</dt>
           <dd className="text-lg font-bold text-gray-900">
-            {student.consecutive_pass_days}日
+            {progress?.consecutive_pass_days ?? 0}日
           </dd>
         </div>
         <div>

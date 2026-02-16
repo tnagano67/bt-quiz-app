@@ -4,12 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import QuestionTable from "@/components/QuestionTable";
 import CsvImport from "@/components/CsvImport";
 import Pagination from "@/components/Pagination";
-import type { Question, GradeDefinition } from "@/lib/types/database";
+import type { Question, GradeDefinition, Subject } from "@/lib/types/database";
 
 const PAGE_SIZE = 50;
 
 type Props = {
   searchParams: Promise<{
+    subject?: string;
     grade?: string;
     page?: string;
   }>;
@@ -31,11 +32,27 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
     .single();
   if (!teacher) redirect("/");
 
-  // グレード定義を取得
-  const { data: gradeData } = await supabase
+  // 科目一覧を取得
+  const { data: subjectData } = await supabase
+    .from("subjects")
+    .select("*")
+    .order("display_order", { ascending: true });
+  const subjects = (subjectData ?? []) as Subject[];
+
+  // 選択された科目（デフォルトは最初の科目）
+  const selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
+
+  // グレード定義を取得（選択科目のみ）
+  let gradeQuery = supabase
     .from("grade_definitions")
     .select("*")
     .order("display_order", { ascending: true });
+
+  if (selectedSubjectId) {
+    gradeQuery = gradeQuery.eq("subject_id", selectedSubjectId);
+  }
+
+  const { data: gradeData } = await gradeQuery;
   const allGrades = (gradeData ?? []) as GradeDefinition[];
 
   // サーバーサイドフィルタリング付きクエリを構築
@@ -43,6 +60,10 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
     .from("questions")
     .select("*", { count: "exact" })
     .order("question_id", { ascending: true });
+
+  if (selectedSubjectId) {
+    query = query.eq("subject_id", selectedSubjectId);
+  }
 
   const selectedGrade = params.grade;
   if (selectedGrade) {
@@ -67,22 +88,48 @@ export default async function TeacherQuestionsPage({ searchParams }: Props) {
 
   // Pagination に渡す searchParams（page を除く）
   const paginationParams: Record<string, string> = {};
-  if (selectedGrade) {
-    paginationParams.grade = selectedGrade;
-  }
+  if (selectedSubjectId) paginationParams.subject = selectedSubjectId;
+  if (selectedGrade) paginationParams.grade = selectedGrade;
 
-  // グレードフィルターのリンクにpage=1を含めないようにする
+  // グレードフィルターのリンク
   const gradeHref = (gradeName?: string) => {
-    if (!gradeName) return "/teacher/questions";
-    return `/teacher/questions?grade=${encodeURIComponent(gradeName)}`;
+    const p = new URLSearchParams();
+    if (selectedSubjectId) p.set("subject", selectedSubjectId);
+    if (gradeName) p.set("grade", gradeName);
+    const qs = p.toString();
+    return `/teacher/questions${qs ? `?${qs}` : ""}`;
+  };
+
+  // 科目フィルターのリンク
+  const subjectHref = (subjectId: string) => {
+    return `/teacher/questions?subject=${subjectId}`;
   };
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-800">問題管理</h2>
-        <CsvImport />
+        <CsvImport subjects={subjects} selectedSubjectId={selectedSubjectId} />
       </div>
+
+      {/* 科目フィルター */}
+      {subjects.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {subjects.map((s) => (
+            <Link
+              key={s.id}
+              href={subjectHref(s.id)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                selectedSubjectId === s.id
+                  ? "bg-teal-100 text-teal-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {s.name}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* グレードフィルター */}
       <div className="flex flex-wrap gap-2">

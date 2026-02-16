@@ -1,3 +1,10 @@
+export type Subject = {
+  id: string;
+  name: string;
+  display_order: number;
+  created_at: string;
+};
+
 export type Student = {
   id: string;
   email: string;
@@ -5,6 +12,14 @@ export type Student = {
   class: number;
   number: number;
   name: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StudentSubjectProgress = {
+  id: string;
+  student_id: string;
+  subject_id: string;
   current_grade: string;
   consecutive_pass_days: number;
   last_challenge_date: string | null;
@@ -14,6 +29,7 @@ export type Student = {
 
 export type GradeDefinition = {
   id: string;
+  subject_id: string;
   grade_name: string;
   display_order: number;
   start_id: number;
@@ -26,6 +42,7 @@ export type GradeDefinition = {
 
 export type Question = {
   id: string;
+  subject_id: string;
   question_id: number;
   question_text: string;
   choice_1: string;
@@ -46,6 +63,7 @@ export type Teacher = {
 export type QuizRecord = {
   id: string;
   student_id: string;
+  subject_id: string;
   grade: string;
   score: number;
   passed: boolean;

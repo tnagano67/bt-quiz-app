@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { QuizRecord } from "@/lib/types/database";
+import type { QuizRecord, Subject } from "@/lib/types/database";
 import HistoryItem from "@/components/HistoryItem";
 
 export default async function HistoryPage() {
@@ -25,6 +25,14 @@ export default async function HistoryPage() {
       </div>
     );
   }
+
+  // 科目一覧を取得（名前表示用）
+  const { data: subjectData } = await supabase
+    .from("subjects")
+    .select("*")
+    .order("display_order", { ascending: true });
+  const subjects = (subjectData ?? []) as Subject[];
+  const subjectMap = new Map(subjects.map((s) => [s.id, s.name]));
 
   // 直近10件の成績記録
   const { data: records } = await supabase
@@ -62,13 +70,7 @@ export default async function HistoryPage() {
           {student.year}年{student.class}組{student.number}番 {student.name}{" "}
           さん
         </h2>
-        <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
-          <div>
-            <p className="text-xs text-gray-500">現在のグレード</p>
-            <p className="text-lg font-bold text-blue-600">
-              {student.current_grade}
-            </p>
-          </div>
+        <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-2">
           <div>
             <p className="text-xs text-gray-500">総受験回数</p>
             <p className="text-lg font-bold text-gray-900">
@@ -106,6 +108,8 @@ export default async function HistoryPage() {
                   score={record.score}
                   passed={record.passed}
                   questionIds={record.question_ids}
+                  subjectId={record.subject_id}
+                  subjectName={subjectMap.get(record.subject_id) ?? ""}
                 />
               );
             })}

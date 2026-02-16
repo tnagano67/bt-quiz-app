@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import GradeForm from "@/components/GradeForm";
-import type { GradeDefinition } from "@/lib/types/database";
+import type { GradeDefinition, Subject } from "@/lib/types/database";
 
 type Props = {
   params: Promise<{ gradeId: string }>;
@@ -31,12 +31,25 @@ export default async function EditGradePage({ params }: Props) {
 
   if (!grade) notFound();
 
+  const typedGrade = grade as GradeDefinition;
+
+  // 科目名を取得
+  const { data: subject } = await supabase
+    .from("subjects")
+    .select("name")
+    .eq("id", typedGrade.subject_id)
+    .single();
+
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-bold text-gray-800">
-        グレードを編集（{(grade as GradeDefinition).grade_name}）
+        グレードを編集（{typedGrade.grade_name}）
       </h2>
-      <GradeForm mode="edit" defaultValues={grade as GradeDefinition} />
+      <GradeForm
+        mode="edit"
+        defaultValues={typedGrade}
+        subjectName={(subject as Subject | null)?.name ?? ""}
+      />
     </div>
   );
 }

@@ -87,26 +87,27 @@ CREATE TABLE students (
   class INTEGER NOT NULL,
   number INTEGER NOT NULL,
   name TEXT NOT NULL,
-  current_grade TEXT NOT NULL DEFAULT 'Grade 1',
-  consecutive_pass_days INTEGER NOT NULL DEFAULT 0,
-  last_challenge_date DATE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
+※ Phase 14 で `current_grade`, `consecutive_pass_days`, `last_challenge_date` を `student_subject_progress` テーブルに移行。
 
 ### grade_definitions
 ```sql
 CREATE TABLE grade_definitions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  grade_name TEXT UNIQUE NOT NULL,
+  subject_id UUID NOT NULL REFERENCES subjects(id),
+  grade_name TEXT NOT NULL,
   display_order INTEGER NOT NULL,
   start_id INTEGER NOT NULL,
   end_id INTEGER NOT NULL,
   num_questions INTEGER NOT NULL,
   pass_score INTEGER NOT NULL,
   required_consecutive_days INTEGER NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (subject_id, grade_name),
+  UNIQUE (subject_id, display_order)
 );
 ```
 
@@ -114,14 +115,16 @@ CREATE TABLE grade_definitions (
 ```sql
 CREATE TABLE questions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  question_id INTEGER UNIQUE NOT NULL,
+  subject_id UUID NOT NULL REFERENCES subjects(id),
+  question_id INTEGER NOT NULL,
   question_text TEXT NOT NULL,
   choice_1 TEXT NOT NULL,
   choice_2 TEXT NOT NULL,
   choice_3 TEXT NOT NULL,
   choice_4 TEXT NOT NULL,
   correct_answer INTEGER NOT NULL CHECK (correct_answer BETWEEN 1 AND 4),
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (subject_id, question_id)
 );
 ```
 
@@ -130,6 +133,7 @@ CREATE TABLE questions (
 CREATE TABLE quiz_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  subject_id UUID NOT NULL REFERENCES subjects(id),
   grade TEXT NOT NULL,
   score INTEGER NOT NULL,
   passed BOOLEAN NOT NULL,
@@ -140,6 +144,7 @@ CREATE TABLE quiz_records (
 );
 CREATE INDEX idx_quiz_records_student_id ON quiz_records(student_id);
 CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
+CREATE INDEX idx_quiz_records_subject_id ON quiz_records(subject_id);
 ```
 
 ### RLS ポリシー概要
@@ -233,6 +238,61 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
 - **キャンセルボタンの Link 化**: 4フォームの `<button onClick={router.push}>` → `<Link href>`（セマンティクス改善）
 - **その他**: Google SVG に `aria-hidden="true"`、ログアウトボタンに `type="button"` 明示
 
+### Phase 14: 複数科目対応 🚧（未コミット）
+
+- **DBスキーマ変更**（`scripts/migrate-subjects.sql`）:
+  - `subjects` テーブル新規作成（id, name, display_order）
+  - `student_subject_progress` テーブル新規作成（student_id, subject_id, current_grade, consecutive_pass_days, last_challenge_date）— `students` テーブルから進捗カラムを分離
+  - `grade_definitions`, `questions`, `quiz_records` に `subject_id` FK 追加
+  - 複合 UNIQUE 制約: `(subject_id, grade_name)`, `(subject_id, display_order)`, `(subject_id, question_id)`
+  - `students` テーブルから `current_grade`, `consecutive_pass_days`, `last_challenge_date` を削除
+  - RLS ポリシー: `subjects` は認証済みユーザーが SELECT 可能・教員が全操作可能、`student_subject_progress` は生徒が自分の分のみ SELECT/UPDATE・教員が全操作可能
+- **科目管理（教員側）**: `/teacher/subjects` — 一覧・登録・編集・削除（`SubjectTable`, `SubjectForm`）。科目作成時に全生徒分の `student_subject_progress` を自動作成（1000件単位バッチ）
+- **生徒ホーム画面の科目対応**: `SubjectCard` グリッド表示（科目ごとの進捗・グレード・連続合格日数）。各カードから `/student/quiz?subject={subjectId}` へ遷移
+- **小テスト受験の科目対応**: `?subject={subjectId}` パラメータ必須化。進捗チェック・更新を `student_subject_progress` に変更。グレード定義・問題セット取得に `subject_id` フィルタ追加
+- **教員側の科目フィルタ**: 問題管理・グレード管理・生徒一覧・生徒詳細・ダッシュボード・エクスポートの全画面で `searchParams.subject` による科目切り替え。科目タブ UI
+- **生徒管理の科目対応**: 生徒作成時に全科目分の `student_subject_progress` を自動作成。`StudentTable` は `progressMap` で科目別進捗を表示
+- **エクスポートの科目対応**: 科目選択 UI 追加、`countExportRows` / Route Handler に `subjectId` フィルタ追加
+- **型定義更新**: `Subject`, `StudentSubjectProgress` 型追加。`GradeDefinition`, `Question`, `QuizRecord` に `subject_id` 追加。`Student` から進捗カラム削除
+- **バリデーション**: `validateSubjectInput()` 追加
+- **テスト更新**: `quiz/actions.test.ts`, `questions/actions.test.ts`, `students/actions.test.ts`, `export-utils.test.ts` を `student_subject_progress` 対応に修正
+- **TeacherHeader**: 「科目管理」ナビリンク追加
+
+---
+
+## データベーススキーマ変更（Phase 14）
+
+### subjects（新規）
+```sql
+CREATE TABLE subjects (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  display_order INT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### student_subject_progress（新規）
+```sql
+CREATE TABLE student_subject_progress (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  current_grade TEXT NOT NULL DEFAULT '',
+  consecutive_pass_days INT NOT NULL DEFAULT 0,
+  last_challenge_date DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(student_id, subject_id)
+);
+```
+
+### 既存テーブル変更
+- `grade_definitions`: `subject_id UUID NOT NULL REFERENCES subjects(id)` 追加、UNIQUE 制約を `(subject_id, grade_name)` と `(subject_id, display_order)` に変更
+- `questions`: `subject_id UUID NOT NULL REFERENCES subjects(id)` 追加、UNIQUE 制約を `(subject_id, question_id)` に変更
+- `quiz_records`: `subject_id UUID NOT NULL REFERENCES subjects(id)` 追加、インデックス追加
+- `students`: `current_grade`, `consecutive_pass_days`, `last_challenge_date` カラム削除（`student_subject_progress` に移行）
+
 ---
 
 ## 今後の候補（未着手）
@@ -240,3 +300,4 @@ CREATE INDEX idx_quiz_records_taken_at ON quiz_records(taken_at DESC);
 優先度や実装順は未定。必要に応じて選択。
 
 - **パフォーマンス最適化**: ISR/キャッシュ戦略、画像最適化
+- **E2Eテストの科目対応**: Playwright テスト・シードデータを複数科目対応に更新

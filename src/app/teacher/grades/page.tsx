@@ -2,9 +2,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import GradeTable from "@/components/GradeTable";
-import type { GradeDefinition } from "@/lib/types/database";
+import type { GradeDefinition, Subject } from "@/lib/types/database";
 
-export default async function TeacherGradesPage() {
+type Props = {
+  searchParams: Promise<{
+    subject?: string;
+  }>;
+};
+
+export default async function TeacherGradesPage({ searchParams }: Props) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -19,10 +26,28 @@ export default async function TeacherGradesPage() {
     .single();
   if (!teacher) redirect("/");
 
-  const { data: gradeData } = await supabase
+  // 科目一覧を取得
+  const { data: subjectData } = await supabase
+    .from("subjects")
+    .select("*")
+    .order("display_order", { ascending: true });
+  const subjects = (subjectData ?? []) as Subject[];
+
+  // 選択された科目（デフォルトは最初の科目）
+  const selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
+  const selectedSubject = subjects.find((s) => s.id === selectedSubjectId);
+
+  // グレード定義を取得（科目フィルター付き）
+  let gradeQuery = supabase
     .from("grade_definitions")
     .select("*")
     .order("display_order", { ascending: true });
+
+  if (selectedSubjectId) {
+    gradeQuery = gradeQuery.eq("subject_id", selectedSubjectId);
+  }
+
+  const { data: gradeData } = await gradeQuery;
   const grades = (gradeData ?? []) as GradeDefinition[];
 
   return (
@@ -37,7 +62,29 @@ export default async function TeacherGradesPage() {
         </Link>
       </div>
 
-      <p className="text-xs text-gray-500">{grades.length}件のグレード</p>
+      {/* 科目フィルター */}
+      {subjects.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {subjects.map((s) => (
+            <Link
+              key={s.id}
+              href={`/teacher/grades?subject=${s.id}`}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                selectedSubjectId === s.id
+                  ? "bg-teal-100 text-teal-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {s.name}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <p className="text-xs text-gray-500">
+        {selectedSubject ? `${selectedSubject.name} — ` : ""}
+        {grades.length}件のグレード
+      </p>
 
       <GradeTable grades={grades} />
     </div>

@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { formatDateShort } from "@/lib/date-utils";
-import type { Student } from "@/lib/types/database";
+import type { Student, StudentSubjectProgress } from "@/lib/types/database";
 
 type Props = {
   students: Student[];
   recentDates: string[];
   scoreMap: Map<string, Map<string, number | null>>;
+  progressMap: Map<string, StudentSubjectProgress>;
 };
 
 export default function StudentTable({
   students,
   recentDates,
   scoreMap,
+  progressMap,
 }: Props) {
   if (students.length === 0) {
     return (
@@ -58,6 +60,7 @@ export default function StudentTable({
         <tbody>
           {students.map((student) => {
             const studentScores = scoreMap.get(student.id);
+            const progress = progressMap.get(student.id);
             return (
               <tr
                 key={student.id}
@@ -78,12 +81,12 @@ export default function StudentTable({
                 </td>
                 <td className="whitespace-nowrap px-3 py-2">
                   <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-800">
-                    {student.current_grade}
+                    {progress?.current_grade ?? "-"}
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-gray-500">
-                  {student.last_challenge_date
-                    ? formatDateShort(student.last_challenge_date)
+                  {progress?.last_challenge_date
+                    ? formatDateShort(progress.last_challenge_date)
                     : "-"}
                 </td>
                 {recentDates.map((date) => {

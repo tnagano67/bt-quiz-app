@@ -2,12 +2,15 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
+import type { Subject } from "@/lib/types/database";
 
 type Props = {
   grades: string[];
+  subjects: Subject[];
+  selectedSubjectId: string;
 };
 
-export default function StudentFilter({ grades }: Props) {
+export default function StudentFilter({ grades, subjects, selectedSubjectId }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -27,6 +30,25 @@ export default function StudentFilter({ grades }: Props) {
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      {/* 科目タブ */}
+      {subjects.length > 1 && (
+        <div className="mb-3 flex gap-2 border-b border-gray-200 pb-3">
+          {subjects.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => updateParams("subject", s.id)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                s.id === selectedSubjectId
+                  ? "bg-teal-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
         <div>
           <label htmlFor="filter-year" className="mb-1 block text-xs font-medium text-gray-600">

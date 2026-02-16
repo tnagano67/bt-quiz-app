@@ -4,11 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { calculateGradeAdvancement } from "@/lib/grade-logic";
 import { getTodayJST } from "@/lib/date-utils";
 import { verifyScore } from "@/lib/quiz-logic";
-import type { GradeDefinition } from "@/lib/types/database";
+import type { GradeDefinition, StudentSubjectProgress } from "@/lib/types/database";
 import type { GradeAdvancementResult } from "@/lib/grade-logic";
 
 type SaveQuizResultInput = {
   studentId: string;
+  subjectId: string;
   grade: string;
   score: number;
   passed: boolean;
@@ -49,9 +50,22 @@ export async function saveQuizResult(
     return { success: false, message: "生徒情報が見つかりません" };
   }
 
+  // 科目別の進捗を取得
+  const { data: progressData } = await supabase
+    .from("student_subject_progress")
+    .select("*")
+    .eq("student_id", input.studentId)
+    .eq("subject_id", input.subjectId)
+    .single();
+
+  const progress = progressData as StudentSubjectProgress | null;
+  if (!progress) {
+    return { success: false, message: "科目の進捗情報が見つかりません" };
+  }
+
   // 日次制限チェック（サーバー側で再検証）
   const todayStr = getTodayJST();
-  if (student.last_challenge_date === todayStr) {
+  if (progress.last_challenge_date === todayStr) {
     return {
       success: true,
       skipped: true,
@@ -63,6 +77,7 @@ export async function saveQuizResult(
   const { data: questions } = await supabase
     .from("questions")
     .select("*")
+    .eq("subject_id", input.subjectId)
     .in("question_id", input.questionIds);
 
   if (!questions || questions.length !== input.questionIds.length) {
@@ -71,15 +86,16 @@ export async function saveQuizResult(
 
   const verifiedScore = verifyScore(questions, input.questionIds, input.studentAnswers);
 
-  // グレード定義を取得
+  // グレード定義を取得（選択科目のもの）
   const { data: grades } = await supabase
     .from("grade_definitions")
     .select("*")
+    .eq("subject_id", input.subjectId)
     .order("display_order", { ascending: true });
 
   const allGrades = (grades ?? []) as GradeDefinition[];
   const currentGradeDef = allGrades.find(
-    (g) => g.grade_name === student.current_grade
+    (g) => g.grade_name === progress.current_grade
   );
   if (!currentGradeDef) {
     return { success: false, message: "グレード定義が見つかりません" };
@@ -89,16 +105,17 @@ export async function saveQuizResult(
 
   // グレード進級計算
   const advancement = calculateGradeAdvancement(
-    student.current_grade,
-    student.consecutive_pass_days,
+    progress.current_grade,
+    progress.consecutive_pass_days,
     verifiedPassed,
-    student.last_challenge_date,
+    progress.last_challenge_date,
     allGrades
   );
 
   // 成績記録を保存
   const { error: insertError } = await supabase.from("quiz_records").insert({
     student_id: input.studentId,
+    subject_id: input.subjectId,
     grade: input.grade,
     score: verifiedScore,
     passed: verifiedPassed,
@@ -111,19 +128,20 @@ export async function saveQuizResult(
     return { success: false, message: "成績記録の保存に失敗しました" };
   }
 
-  // 生徒情報を更新
+  // 科目別進捗を更新
   const { error: updateError } = await supabase
-    .from("students")
+    .from("student_subject_progress")
     .update({
       current_grade: advancement.newGrade,
       consecutive_pass_days: advancement.newStreak,
       last_challenge_date: todayStr,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", input.studentId);
+    .eq("student_id", input.studentId)
+    .eq("subject_id", input.subjectId);
 
   if (updateError) {
-    return { success: false, message: "生徒情報の更新に失敗しました" };
+    return { success: false, message: "進捗情報の更新に失敗しました" };
   }
 
   return {

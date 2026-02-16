@@ -2,8 +2,14 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
+import type { Subject } from "@/lib/types/database";
 
-export default function DashboardFilter() {
+type Props = {
+  subjects: Subject[];
+  selectedSubjectId: string;
+};
+
+export default function DashboardFilter({ subjects, selectedSubjectId }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -22,6 +28,25 @@ export default function DashboardFilter() {
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      {/* 科目タブ */}
+      {subjects.length > 1 && (
+        <div className="mb-3 flex gap-2 border-b border-gray-200 pb-3">
+          {subjects.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => updateParams("subject", s.id)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                s.id === selectedSubjectId
+                  ? "bg-teal-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div>
           <label htmlFor="dashboard-year" className="mb-1 block text-xs font-medium text-gray-600">

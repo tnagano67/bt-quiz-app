@@ -1,10 +1,15 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getRecentDates, isTakenToday } from "@/lib/date-utils";
-import StudentInfoCard from "@/components/StudentInfoCard";
+import SubjectCard from "@/components/SubjectCard";
 import ScoreChart from "@/components/ScoreChart";
 import Link from "next/link";
-import type { GradeDefinition, QuizRecord } from "@/lib/types/database";
+import type {
+  Subject,
+  StudentSubjectProgress,
+  GradeDefinition,
+  QuizRecord,
+} from "@/lib/types/database";
 
 export default async function StudentHomePage() {
   const supabase = await createClient();
@@ -30,25 +35,40 @@ export default async function StudentHomePage() {
     );
   }
 
-  // グレード定義を全件取得
-  const { data: grades } = await supabase
+  // 科目一覧を取得
+  const { data: subjectData } = await supabase
+    .from("subjects")
+    .select("*")
+    .order("display_order", { ascending: true });
+  const subjects = (subjectData ?? []) as Subject[];
+
+  // 全科目の進捗を取得
+  const { data: progressData } = await supabase
+    .from("student_subject_progress")
+    .select("*")
+    .eq("student_id", student.id);
+
+  const progressMap = new Map<string, StudentSubjectProgress>();
+  for (const p of (progressData ?? []) as StudentSubjectProgress[]) {
+    progressMap.set(p.subject_id, p);
+  }
+
+  // 全科目のグレード定義を取得
+  const { data: gradeData } = await supabase
     .from("grade_definitions")
     .select("*")
     .order("display_order", { ascending: true });
+  const allGrades = (gradeData ?? []) as GradeDefinition[];
 
-  const allGrades = (grades ?? []) as GradeDefinition[];
-  const currentGrade = allGrades.find(
-    (g) => g.grade_name === student.current_grade
-  );
-  if (!currentGrade) redirect("/login");
+  // 科目ごとのグレード情報を整理
+  const gradesBySubject = new Map<string, GradeDefinition[]>();
+  for (const g of allGrades) {
+    const list = gradesBySubject.get(g.subject_id) ?? [];
+    list.push(g);
+    gradesBySubject.set(g.subject_id, list);
+  }
 
-  const currentIndex = allGrades.findIndex(
-    (g) => g.grade_name === student.current_grade
-  );
-  const nextGrade =
-    currentIndex < allGrades.length - 1 ? allGrades[currentIndex + 1] : null;
-
-  // 直近10日間の成績を取得
+  // 直近10日間の成績を取得（全科目合算）
   const recentDates = getRecentDates(10);
   const oldestDate = recentDates[recentDates.length - 1];
 
@@ -79,26 +99,51 @@ export default async function StudentHomePage() {
     };
   });
 
-  const hasTakenToday = isTakenToday(student.last_challenge_date);
-
   return (
     <div className="flex flex-col gap-6">
-      <StudentInfoCard
-        student={student}
-        currentGrade={currentGrade}
-        nextGrade={nextGrade}
-        hasTakenToday={hasTakenToday}
-      />
+      <h2 className="text-lg font-bold text-gray-900">
+        {student.year}年{student.class}組{student.number}番 {student.name} さん
+      </h2>
+
+      {/* 科目カード */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {subjects.map((subject) => {
+          const progress = progressMap.get(subject.id) ?? null;
+          const subjectGrades = gradesBySubject.get(subject.id) ?? [];
+          const currentGrade = progress
+            ? subjectGrades.find(
+                (g) => g.grade_name === progress.current_grade
+              ) ?? null
+            : null;
+          const currentIndex = currentGrade
+            ? subjectGrades.findIndex(
+                (g) => g.grade_name === currentGrade.grade_name
+              )
+            : -1;
+          const nextGrade =
+            currentIndex >= 0 && currentIndex < subjectGrades.length - 1
+              ? subjectGrades[currentIndex + 1]
+              : null;
+          const hasTaken = isTakenToday(
+            progress?.last_challenge_date ?? null
+          );
+
+          return (
+            <SubjectCard
+              key={subject.id}
+              subject={subject}
+              progress={progress}
+              currentGrade={currentGrade}
+              nextGrade={nextGrade}
+              hasTakenToday={hasTaken}
+            />
+          );
+        })}
+      </div>
 
       <ScoreChart scores={scores} />
 
       <div className="flex gap-3">
-        <Link
-          href="/student/quiz"
-          className="flex-1 rounded-lg bg-blue-600 py-3 text-center font-bold text-white shadow-sm transition-colors hover:bg-blue-700"
-        >
-          小テストを受ける
-        </Link>
         <Link
           href="/student/history"
           className="flex-1 rounded-lg border border-gray-300 bg-white py-3 text-center font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"

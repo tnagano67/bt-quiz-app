@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import GradeForm from "@/components/GradeForm";
-import type { Subject } from "@/lib/types/database";
+import SubjectForm from "@/components/SubjectForm";
 
-export default async function NewGradePage() {
+export default async function NewSubjectPage() {
   const supabase = await createClient();
 
   const {
@@ -18,16 +17,10 @@ export default async function NewGradePage() {
     .single();
   if (!teacher) redirect("/");
 
-  const { data: subjectData } = await supabase
-    .from("subjects")
-    .select("*")
-    .order("display_order", { ascending: true });
-  const subjects = (subjectData ?? []) as Subject[];
-
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-bold text-gray-800">グレードを追加</h2>
-      <GradeForm mode="create" subjects={subjects} />
+      <h2 className="text-lg font-bold text-gray-800">科目を追加</h2>
+      <SubjectForm mode="create" />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { shuffleArray, shuffleChoices } from "@/lib/quiz-logic";
 import type { ShuffledChoice } from "@/lib/quiz-logic";
-import type { Question, Student, GradeDefinition } from "@/lib/types/database";
+import type { Question, GradeDefinition } from "@/lib/types/database";
 import type { GradeAdvancementResult } from "@/lib/grade-logic";
 import QuizQuestion from "@/components/QuizQuestion";
 import QuizResult from "@/components/QuizResult";
@@ -28,13 +28,15 @@ export default function QuizPage() {
 function QuizContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const subjectId = searchParams.get("subject");
   const retryIds = searchParams.get("retry");
   const isRetry = !!retryIds;
 
   const [state, setState] = useState<QuizState>("loading");
   const [errorMessage, setErrorMessage] = useState("");
-  const [student, setStudent] = useState<Student | null>(null);
+  const [studentId, setStudentId] = useState("");
   const [gradeDef, setGradeDef] = useState<GradeDefinition | null>(null);
+  const [currentGradeName, setCurrentGradeName] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [shuffledChoices, setShuffledChoices] = useState<ShuffledChoice[][]>(
     []
@@ -52,6 +54,12 @@ function QuizContent() {
 
   const loadQuiz = useCallback(async () => {
     try {
+      if (!subjectId) {
+        setErrorMessage("科目が指定されていません");
+        setState("error");
+        return;
+      }
+
       const supabase = createClient();
 
       const {
@@ -74,33 +82,52 @@ function QuizContent() {
         setState("error");
         return;
       }
-      setStudent(studentData);
+      setStudentId(studentData.id);
 
-      // グレード定義
+      // 科目別の進捗を取得
+      const { data: progressData } = await supabase
+        .from("student_subject_progress")
+        .select("*")
+        .eq("student_id", studentData.id)
+        .eq("subject_id", subjectId)
+        .single();
+
+      if (!progressData) {
+        setErrorMessage("この科目の進捗情報が見つかりません");
+        setState("error");
+        return;
+      }
+
+      const currentGrade = progressData.current_grade as string;
+      setCurrentGradeName(currentGrade);
+
+      // グレード定義（選択科目のもの）
       const { data: grades } = await supabase
         .from("grade_definitions")
         .select("*")
+        .eq("subject_id", subjectId)
         .order("display_order", { ascending: true });
 
       const allGrades = (grades ?? []) as GradeDefinition[];
-      const currentGrade = allGrades.find(
-        (g) => g.grade_name === studentData.current_grade
+      const currentGradeDef = allGrades.find(
+        (g) => g.grade_name === currentGrade
       );
-      if (!currentGrade) {
+      if (!currentGradeDef) {
         setErrorMessage("グレード定義が見つかりません");
         setState("error");
         return;
       }
-      setGradeDef(currentGrade);
+      setGradeDef(currentGradeDef);
 
       let selectedQuestions: Question[];
 
       if (isRetry && retryIds) {
-        // 再受験: 指定IDの問題を取得
+        // 再受験: 指定IDの問題を取得（科目でフィルタ）
         const ids = retryIds.split(",").map(Number);
         const { data: questionData } = await supabase
           .from("questions")
           .select("*")
+          .eq("subject_id", subjectId)
           .in("question_id", ids);
 
         if (!questionData || questionData.length === 0) {
@@ -115,16 +142,17 @@ function QuizContent() {
           (a, b) => idOrder.get(a.question_id)! - idOrder.get(b.question_id)!
         );
       } else {
-        // 通常受験: グレード範囲から問題を取得してシャッフル
+        // 通常受験: グレード範囲から問題を取得してシャッフル（科目でフィルタ）
         const { data: questionData } = await supabase
           .from("questions")
           .select("*")
-          .gte("question_id", currentGrade.start_id)
-          .lte("question_id", currentGrade.end_id);
+          .eq("subject_id", subjectId)
+          .gte("question_id", currentGradeDef.start_id)
+          .lte("question_id", currentGradeDef.end_id);
 
         if (
           !questionData ||
-          questionData.length < currentGrade.num_questions
+          questionData.length < currentGradeDef.num_questions
         ) {
           setErrorMessage("問題数が不足しています");
           setState("error");
@@ -133,7 +161,7 @@ function QuizContent() {
 
         selectedQuestions = shuffleArray(questionData).slice(
           0,
-          currentGrade.num_questions
+          currentGradeDef.num_questions
         );
       }
 
@@ -145,7 +173,7 @@ function QuizContent() {
       setErrorMessage("データの読み込みに失敗しました");
       setState("error");
     }
-  }, [router, isRetry, retryIds]);
+  }, [router, subjectId, isRetry, retryIds]);
 
   useEffect(() => {
     loadQuiz();
@@ -161,7 +189,7 @@ function QuizContent() {
 
   const handleSubmit = async () => {
     if (answers.some((a) => a === null)) return;
-    if (!student || !gradeDef) return;
+    if (!studentId || !gradeDef || !subjectId) return;
 
     setSubmitting(true);
 
@@ -187,8 +215,9 @@ function QuizContent() {
     if (!isRetry) {
       try {
         const result = await saveQuizResult({
-          studentId: student.id,
-          grade: student.current_grade,
+          studentId,
+          subjectId,
+          grade: currentGradeName,
           score: calcScore,
           passed: calcPassed,
           questionIds: questions.map((q) => q.question_id),
@@ -237,7 +266,7 @@ function QuizContent() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-base font-bold text-gray-900 sm:text-lg">
-          {isRetry ? "再受験" : "小テスト"} — {student?.current_grade}
+          {isRetry ? "再受験" : "小テスト"} — {currentGradeName}
         </h2>
         <span className="text-xs text-gray-500 sm:text-sm">
           {questions.length}問 / 合格ライン {gradeDef?.pass_score}%

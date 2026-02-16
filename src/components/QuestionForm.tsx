@@ -7,15 +7,20 @@ import {
   createQuestion,
   updateQuestion,
 } from "@/app/teacher/questions/actions";
-import type { Question } from "@/lib/types/database";
+import type { Question, Subject } from "@/lib/types/database";
 
 type Props = {
   mode: "create" | "edit";
   defaultValues?: Question;
+  subjects?: Subject[];
+  subjectName?: string;
 };
 
-export default function QuestionForm({ mode, defaultValues }: Props) {
+export default function QuestionForm({ mode, defaultValues, subjects, subjectName }: Props) {
   const router = useRouter();
+  const [subjectId, setSubjectId] = useState(
+    defaultValues?.subject_id ?? subjects?.[0]?.id ?? ""
+  );
   const [questionId, setQuestionId] = useState(
     defaultValues?.question_id?.toString() ?? ""
   );
@@ -35,6 +40,11 @@ export default function QuestionForm({ mode, defaultValues }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (mode === "create" && !subjectId) {
+      setError("科目を選択してください");
+      return;
+    }
 
     const qId = Number(questionId);
     const correct = Number(correctAnswer);
@@ -74,8 +84,8 @@ export default function QuestionForm({ mode, defaultValues }: Props) {
 
     const result =
       mode === "create"
-        ? await createQuestion({ ...input, question_id: qId })
-        : await updateQuestion(defaultValues!.question_id, input);
+        ? await createQuestion({ ...input, subject_id: subjectId, question_id: qId })
+        : await updateQuestion(defaultValues!.question_id, defaultValues!.subject_id, input);
 
     if (!result.success) {
       setError(result.message ?? "エラーが発生しました");
@@ -96,6 +106,30 @@ export default function QuestionForm({ mode, defaultValues }: Props) {
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4">
+          {/* 科目選択 */}
+          <div>
+            <label htmlFor="question-subject" className="mb-1 block text-xs font-medium text-gray-600">
+              科目
+            </label>
+            {mode === "create" && subjects ? (
+              <select
+                id="question-subject"
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                className="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800"
+                required
+              >
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-sm text-gray-700">{subjectName}</p>
+            )}
+          </div>
+
           <div>
             <label htmlFor="question-id" className="mb-1 block text-xs font-medium text-gray-600">
               問題ID

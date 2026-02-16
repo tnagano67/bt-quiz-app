@@ -39,16 +39,56 @@ async function verifyTeacher(): Promise<{ error?: Result }> {
   return {};
 }
 
-async function getFirstGradeName(): Promise<string> {
+/** 全科目の最初のグレード名を取得 */
+async function getFirstGradeNames(): Promise<
+  { subject_id: string; grade_name: string }[]
+> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("grade_definitions")
-    .select("grade_name")
-    .order("display_order", { ascending: true })
-    .limit(1)
-    .single();
 
-  return data?.grade_name ?? "10級";
+  // 全科目を取得
+  const { data: subjects } = await supabase
+    .from("subjects")
+    .select("id")
+    .order("display_order", { ascending: true });
+
+  if (!subjects || subjects.length === 0) return [];
+
+  const result: { subject_id: string; grade_name: string }[] = [];
+
+  for (const subject of subjects) {
+    const { data: firstGrade } = await supabase
+      .from("grade_definitions")
+      .select("grade_name")
+      .eq("subject_id", subject.id)
+      .order("display_order", { ascending: true })
+      .limit(1)
+      .single();
+
+    result.push({
+      subject_id: subject.id,
+      grade_name: firstGrade?.grade_name ?? "",
+    });
+  }
+
+  return result;
+}
+
+/** 生徒作成後に全科目分の student_subject_progress を一括作成 */
+async function createProgressForStudent(studentId: string) {
+  const supabase = await createClient();
+  const firstGrades = await getFirstGradeNames();
+
+  if (firstGrades.length > 0) {
+    await supabase.from("student_subject_progress").insert(
+      firstGrades.map((fg) => ({
+        student_id: studentId,
+        subject_id: fg.subject_id,
+        current_grade: fg.grade_name,
+        consecutive_pass_days: 0,
+        last_challenge_date: null,
+      }))
+    );
+  }
 }
 
 export async function createStudent(input: StudentInput): Promise<Result> {
@@ -71,22 +111,24 @@ export async function createStudent(input: StudentInput): Promise<Result> {
     };
   }
 
-  const currentGrade = await getFirstGradeName();
+  const { data: newStudent, error: insertError } = await supabase
+    .from("students")
+    .insert({
+      email: input.email,
+      year: input.year,
+      class: input.class,
+      number: input.number,
+      name: input.name,
+    })
+    .select("id")
+    .single();
 
-  const { error: insertError } = await supabase.from("students").insert({
-    email: input.email,
-    year: input.year,
-    class: input.class,
-    number: input.number,
-    name: input.name,
-    current_grade: currentGrade,
-    consecutive_pass_days: 0,
-    last_challenge_date: null,
-  });
-
-  if (insertError) {
+  if (insertError || !newStudent) {
     return { success: false, message: "生徒の追加に失敗しました" };
   }
+
+  // 全科目分の progress を作成
+  await createProgressForStudent(newStudent.id);
 
   revalidatePath("/teacher/students");
   return { success: true };
@@ -115,7 +157,6 @@ export async function importStudents(
   }
 
   const supabase = await createClient();
-  const currentGrade = await getFirstGradeName();
   const errors: string[] = [];
 
   // バリデーション
@@ -156,9 +197,6 @@ export async function importStudents(
       class: r.class,
       number: r.number,
       name: r.name,
-      current_grade: currentGrade,
-      consecutive_pass_days: 0,
-      last_challenge_date: null,
     }));
 
   const toUpdate = validRows.filter((r) => existingEmails.has(r.email));
@@ -168,19 +206,42 @@ export async function importStudents(
 
   // 新規を一括挿入
   if (toInsert.length > 0) {
-    const { error: insertError } = await supabase
+    const { data: insertedStudents, error: insertError } = await supabase
       .from("students")
-      .insert(toInsert);
+      .insert(toInsert)
+      .select("id");
 
     if (insertError) {
       errors.push(`一括挿入に失敗しました: ${insertError.message}`);
     } else {
       inserted = toInsert.length;
+
+      // 新規挿入した生徒分の progress を作成
+      if (insertedStudents && insertedStudents.length > 0) {
+        const firstGrades = await getFirstGradeNames();
+        if (firstGrades.length > 0) {
+          const progressRows = insertedStudents.flatMap((student) =>
+            firstGrades.map((fg) => ({
+              student_id: student.id,
+              subject_id: fg.subject_id,
+              current_grade: fg.grade_name,
+              consecutive_pass_days: 0,
+              last_challenge_date: null,
+            }))
+          );
+
+          // 1000件ずつバッチで挿入
+          for (let i = 0; i < progressRows.length; i += 1000) {
+            await supabase
+              .from("student_subject_progress")
+              .insert(progressRows.slice(i, i + 1000));
+          }
+        }
+      }
     }
   }
 
-  // 更新は current_grade 等を上書きしないため upsert ではなく個別更新だが、
-  // Promise.all で並列実行して高速化
+  // 更新は progress を上書きしないため個別更新
   if (toUpdate.length > 0) {
     const updateResults = await Promise.all(
       toUpdate.map((row) =>

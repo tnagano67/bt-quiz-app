@@ -1,10 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { GradeDefinition } from "@/lib/types/database";
+import type { GradeDefinition, Subject } from "@/lib/types/database";
 
 type CountParams = {
   type: "students" | "records";
+  subjectId?: string;
   year?: string;
   cls?: string;
   gradeFrom?: string;
@@ -35,17 +36,35 @@ async function verifyTeacher() {
   return teacher ? supabase : null;
 }
 
+export async function getSubjects(): Promise<Subject[]> {
+  const supabase = await verifyTeacher();
+  if (!supabase) return [];
+
+  const { data } = await supabase
+    .from("subjects")
+    .select("*")
+    .order("display_order", { ascending: true });
+
+  return (data ?? []) as Subject[];
+}
+
 export async function countExportRows(params: CountParams): Promise<CountResult> {
   const supabase = await verifyTeacher();
   if (!supabase) {
     return { success: false, message: "認証エラー" };
   }
 
-  // グレード定義取得
-  const { data: gradeData } = await supabase
+  const subjectId = params.subjectId;
+
+  // グレード定義取得（科目フィルタ）
+  let gradeQuery = supabase
     .from("grade_definitions")
     .select("*")
     .order("display_order", { ascending: true });
+  if (subjectId) {
+    gradeQuery = gradeQuery.eq("subject_id", subjectId);
+  }
+  const { data: gradeData } = await gradeQuery;
   const allGrades = (gradeData ?? []) as GradeDefinition[];
   const gradeNames = allGrades.map((g) => g.grade_name);
 
@@ -60,15 +79,41 @@ export async function countExportRows(params: CountParams): Promise<CountResult>
       : null;
 
   if (params.type === "students") {
-    let query = supabase
+    // グレードフィルターは student_subject_progress 経由
+    let studentQuery = supabase
       .from("students")
-      .select("*", { count: "exact", head: true });
+      .select("id", { count: "exact", head: !gradeFilter });
 
-    if (params.year) query = query.eq("year", Number(params.year));
-    if (params.cls) query = query.eq("class", Number(params.cls));
-    if (gradeFilter) query = query.in("current_grade", gradeFilter);
+    if (params.year) studentQuery = studentQuery.eq("year", Number(params.year));
+    if (params.cls) studentQuery = studentQuery.eq("class", Number(params.cls));
 
-    const { count, error } = await query;
+    if (gradeFilter && subjectId) {
+      // gradeFilter がある場合は progress 経由で student_id を取得
+      const { data: progressData } = await supabase
+        .from("student_subject_progress")
+        .select("student_id")
+        .eq("subject_id", subjectId)
+        .in("current_grade", gradeFilter);
+
+      const studentIds = (progressData ?? []).map((p) => p.student_id);
+      if (studentIds.length === 0) {
+        return { success: true, count: 0 };
+      }
+
+      const studentCountQuery = supabase
+        .from("students")
+        .select("*", { count: "exact", head: true })
+        .in("id", studentIds);
+
+      if (params.year) studentCountQuery.eq("year", Number(params.year));
+      if (params.cls) studentCountQuery.eq("class", Number(params.cls));
+
+      const { count, error } = await studentCountQuery;
+      if (error) return { success: false, message: error.message };
+      return { success: true, count: count ?? 0 };
+    }
+
+    const { count, error } = await studentQuery;
     if (error) return { success: false, message: error.message };
     return { success: true, count: count ?? 0 };
   }
@@ -78,7 +123,21 @@ export async function countExportRows(params: CountParams): Promise<CountResult>
     let studentQuery = supabase.from("students").select("id");
     if (params.year) studentQuery = studentQuery.eq("year", Number(params.year));
     if (params.cls) studentQuery = studentQuery.eq("class", Number(params.cls));
-    if (gradeFilter) studentQuery = studentQuery.in("current_grade", gradeFilter);
+
+    // グレードフィルターは progress 経由
+    if (gradeFilter && subjectId) {
+      const { data: progressData } = await supabase
+        .from("student_subject_progress")
+        .select("student_id")
+        .eq("subject_id", subjectId)
+        .in("current_grade", gradeFilter);
+
+      const filteredIds = (progressData ?? []).map((p) => p.student_id);
+      if (filteredIds.length === 0) {
+        return { success: true, count: 0 };
+      }
+      studentQuery = studentQuery.in("id", filteredIds);
+    }
 
     const { data: studentData } = await studentQuery;
     const studentIds = (studentData ?? []).map((s: { id: string }) => s.id);
@@ -92,6 +151,9 @@ export async function countExportRows(params: CountParams): Promise<CountResult>
       .select("*", { count: "exact", head: true })
       .in("student_id", studentIds);
 
+    if (subjectId) {
+      recordQuery = recordQuery.eq("subject_id", subjectId);
+    }
     if (params.dateFrom) {
       recordQuery = recordQuery.gte("taken_at", `${params.dateFrom}T00:00:00+09:00`);
     }
@@ -107,14 +169,19 @@ export async function countExportRows(params: CountParams): Promise<CountResult>
   return { success: false, message: "type パラメータが不正です" };
 }
 
-export async function getGradeNames(): Promise<string[]> {
+export async function getGradeNames(subjectId?: string): Promise<string[]> {
   const supabase = await verifyTeacher();
   if (!supabase) return [];
 
-  const { data } = await supabase
+  let query = supabase
     .from("grade_definitions")
     .select("grade_name, display_order")
     .order("display_order", { ascending: true });
 
+  if (subjectId) {
+    query = query.eq("subject_id", subjectId);
+  }
+
+  const { data } = await query;
   return (data ?? []).map((g: { grade_name: string }) => g.grade_name);
 }

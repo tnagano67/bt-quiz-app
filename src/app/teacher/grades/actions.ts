@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 type GradeInput = {
+  subject_id: string;
   grade_name: string;
   display_order: number;
   start_id: number;
@@ -46,37 +47,40 @@ export async function createGrade(input: GradeInput): Promise<Result> {
 
   const supabase = await createClient();
 
-  // grade_name の重複チェック
+  // grade_name の重複チェック（同一科目内）
   const { data: existingName } = await supabase
     .from("grade_definitions")
     .select("id")
+    .eq("subject_id", input.subject_id)
     .eq("grade_name", input.grade_name)
     .single();
 
   if (existingName) {
     return {
       success: false,
-      message: `グレード名「${input.grade_name}」はすでに使用されています`,
+      message: `グレード名「${input.grade_name}」はこの科目ですでに使用されています`,
     };
   }
 
-  // display_order の重複チェック
+  // display_order の重複チェック（同一科目内）
   const { data: existingOrder } = await supabase
     .from("grade_definitions")
     .select("id")
+    .eq("subject_id", input.subject_id)
     .eq("display_order", input.display_order)
     .single();
 
   if (existingOrder) {
     return {
       success: false,
-      message: `表示順 ${input.display_order} はすでに使用されています`,
+      message: `表示順 ${input.display_order} はこの科目ですでに使用されています`,
     };
   }
 
   const { error: insertError } = await supabase
     .from("grade_definitions")
     .insert({
+      subject_id: input.subject_id,
       grade_name: input.grade_name,
       display_order: input.display_order,
       start_id: input.start_id,
@@ -96,7 +100,7 @@ export async function createGrade(input: GradeInput): Promise<Result> {
 
 export async function updateGrade(
   id: string,
-  input: Omit<GradeInput, "grade_name">
+  input: Omit<GradeInput, "grade_name" | "subject_id">
 ): Promise<Result> {
   const { error } = await verifyTeacher();
   if (error) return error;
@@ -105,7 +109,7 @@ export async function updateGrade(
 
   const { data: existing } = await supabase
     .from("grade_definitions")
-    .select("id")
+    .select("id, subject_id")
     .eq("id", id)
     .single();
 
@@ -113,10 +117,11 @@ export async function updateGrade(
     return { success: false, message: "グレードが見つかりません" };
   }
 
-  // display_order の重複チェック（自身を除く）
+  // display_order の重複チェック（同一科目内、自身を除く）
   const { data: existingOrder } = await supabase
     .from("grade_definitions")
     .select("id")
+    .eq("subject_id", existing.subject_id)
     .eq("display_order", input.display_order)
     .neq("id", id)
     .single();
@@ -124,7 +129,7 @@ export async function updateGrade(
   if (existingOrder) {
     return {
       success: false,
-      message: `表示順 ${input.display_order} はすでに使用されています`,
+      message: `表示順 ${input.display_order} はこの科目ですでに使用されています`,
     };
   }
 
@@ -157,7 +162,7 @@ export async function deleteGrade(id: string): Promise<Result> {
   // グレード名を取得
   const { data: grade } = await supabase
     .from("grade_definitions")
-    .select("grade_name")
+    .select("grade_name, subject_id")
     .eq("id", id)
     .single();
 
@@ -165,10 +170,11 @@ export async function deleteGrade(id: string): Promise<Result> {
     return { success: false, message: "グレードが見つかりません" };
   }
 
-  // 生徒が参照中か確認
+  // student_subject_progress で参照中か確認
   const { count } = await supabase
-    .from("students")
+    .from("student_subject_progress")
     .select("id", { count: "exact", head: true })
+    .eq("subject_id", grade.subject_id)
     .eq("current_grade", grade.grade_name);
 
   if (count && count > 0) {

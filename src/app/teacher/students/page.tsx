@@ -7,6 +7,8 @@ import StudentCsvImport from "@/components/StudentCsvImport";
 import Pagination from "@/components/Pagination";
 import type {
   Student,
+  Subject,
+  StudentSubjectProgress,
   GradeDefinition,
   QuizRecord,
 } from "@/lib/types/database";
@@ -17,6 +19,7 @@ type Props = {
   searchParams: Promise<{
     year?: string;
     class?: string;
+    subject?: string;
     gradeFrom?: string;
     gradeTo?: string;
     name?: string;
@@ -41,11 +44,23 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
     .single();
   if (!teacher) redirect("/");
 
-  // グレード定義を取得（フィルター用 + グレード範囲判定用）
-  const { data: gradeData } = await supabase
+  // 科目一覧を取得
+  const { data: subjectData } = await supabase
+    .from("subjects")
+    .select("*")
+    .order("display_order", { ascending: true });
+  const subjects = (subjectData ?? []) as Subject[];
+  const selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
+
+  // グレード定義を取得（フィルター用、選択科目のもの）
+  let gradeDefQuery = supabase
     .from("grade_definitions")
     .select("*")
     .order("display_order", { ascending: true });
+  if (selectedSubjectId) {
+    gradeDefQuery = gradeDefQuery.eq("subject_id", selectedSubjectId);
+  }
+  const { data: gradeData } = await gradeDefQuery;
   const allGrades = (gradeData ?? []) as GradeDefinition[];
   const gradeNames = allGrades.map((g) => g.grade_name);
 
@@ -66,8 +81,13 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
   if (params.name) {
     query = query.ilike("name", `%${params.name}%`);
   }
-  // グレード範囲フィルター
-  {
+
+  // グレード範囲フィルターは student_subject_progress 経由で行う
+  // まず全生徒を取得してから progress でフィルタ
+  const hasGradeFilter = !!(params.gradeFrom || params.gradeTo);
+
+  if (hasGradeFilter && selectedSubjectId) {
+    // グレード範囲に該当する生徒IDを取得
     const fromIndex = params.gradeFrom
       ? gradeNames.indexOf(params.gradeFrom)
       : -1;
@@ -76,8 +96,20 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
       : -1;
     const sliceFrom = fromIndex !== -1 ? fromIndex : 0;
     const sliceTo = toIndex !== -1 ? toIndex + 1 : gradeNames.length;
-    if (fromIndex !== -1 || toIndex !== -1) {
-      query = query.in("current_grade", gradeNames.slice(sliceFrom, sliceTo));
+    const filteredGrades = gradeNames.slice(sliceFrom, sliceTo);
+
+    const { data: progressData } = await supabase
+      .from("student_subject_progress")
+      .select("student_id")
+      .eq("subject_id", selectedSubjectId)
+      .in("current_grade", filteredGrades);
+
+    const studentIds = (progressData ?? []).map((p) => p.student_id);
+    if (studentIds.length > 0) {
+      query = query.in("id", studentIds);
+    } else {
+      // マッチなし
+      query = query.eq("id", "00000000-0000-0000-0000-000000000000");
     }
   }
 
@@ -92,6 +124,21 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
   const totalCount = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
+  // 表示中の生徒の選択科目の進捗を取得
+  const progressMap = new Map<string, StudentSubjectProgress>();
+  if (students.length > 0 && selectedSubjectId) {
+    const studentIds = students.map((s) => s.id);
+    const { data: progressData } = await supabase
+      .from("student_subject_progress")
+      .select("*")
+      .eq("subject_id", selectedSubjectId)
+      .in("student_id", studentIds);
+
+    for (const p of (progressData ?? []) as StudentSubjectProgress[]) {
+      progressMap.set(p.student_id, p);
+    }
+  }
+
   // 直近3日間のスコアを取得（表示中の生徒のみ）
   const recentDates = getRecentDates(3);
   const oldestDate = recentDates[recentDates.length - 1];
@@ -100,12 +147,18 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
 
   if (students.length > 0) {
     const studentIds = students.map((s) => s.id);
-    const { data: records } = await supabase
+    let recordQuery = supabase
       .from("quiz_records")
       .select("*")
       .in("student_id", studentIds)
       .gte("taken_at", `${oldestDate}T00:00:00+09:00`)
       .order("taken_at", { ascending: false });
+
+    if (selectedSubjectId) {
+      recordQuery = recordQuery.eq("subject_id", selectedSubjectId);
+    }
+
+    const { data: records } = await recordQuery;
 
     const allRecords = (records ?? []) as QuizRecord[];
 
@@ -136,7 +189,11 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
         <StudentCsvImport />
       </div>
 
-      <StudentFilter grades={gradeNames} />
+      <StudentFilter
+        grades={gradeNames}
+        subjects={subjects}
+        selectedSubjectId={selectedSubjectId}
+      />
 
       <p className="text-xs text-gray-500">{totalCount}件の生徒</p>
 
@@ -151,6 +208,7 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
         students={students}
         recentDates={recentDates}
         scoreMap={scoreMap}
+        progressMap={progressMap}
       />
 
       <Pagination

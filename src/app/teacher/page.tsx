@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import type { Teacher, Student } from "@/lib/types/database";
+import type {
+  Teacher,
+  Student,
+  Subject,
+  StudentSubjectProgress,
+} from "@/lib/types/database";
 import { getTodayJST, getRecentDates, formatDateShort, toJSTDateString } from "@/lib/date-utils";
 import GradeDistributionChart from "@/components/GradeDistributionChart";
 import PassRateTrendChart from "@/components/PassRateTrendChart";
@@ -13,7 +18,8 @@ type RecentRecord = { taken_at: string; passed: boolean; score: number };
 async function fetchAllRecentRecords(
   supabase: Awaited<ReturnType<typeof createClient>>,
   sinceDate: string,
-  studentIds?: string[]
+  studentIds?: string[],
+  subjectId?: string
 ): Promise<RecentRecord[]> {
   const PAGE_SIZE = 1000;
   const allRecords: RecentRecord[] = [];
@@ -27,6 +33,9 @@ async function fetchAllRecentRecords(
 
     if (studentIds) {
       query = query.in("student_id", studentIds);
+    }
+    if (subjectId) {
+      query = query.eq("subject_id", subjectId);
     }
 
     const { data } = await query.range(from, from + PAGE_SIZE - 1);
@@ -74,6 +83,7 @@ type Props = {
   searchParams: Promise<{
     year?: string;
     class?: string;
+    subject?: string;
   }>;
 };
 
@@ -100,6 +110,14 @@ export default async function TeacherHomePage({ searchParams }: Props) {
   const classFilter = params.class ? Number(params.class) : undefined;
   const hasFilter = !!(yearFilter || classFilter);
 
+  // 科目一覧を取得
+  const { data: subjectData } = await supabase
+    .from("subjects")
+    .select("*")
+    .order("display_order", { ascending: true });
+  const subjects = (subjectData ?? []) as Subject[];
+  const selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
+
   const sinceDate = getRecentDates(30).at(-1)!;
 
   // データ取得（並列）
@@ -108,6 +126,7 @@ export default async function TeacherHomePage({ searchParams }: Props) {
     supabase
       .from("grade_definitions")
       .select("*")
+      .eq("subject_id", selectedSubjectId)
       .order("display_order", { ascending: true }),
   ]);
 
@@ -116,7 +135,25 @@ export default async function TeacherHomePage({ searchParams }: Props) {
   // フィルターがある場合は student_ids で quiz_records を絞り込む
   const studentIds = hasFilter ? students.map((s) => s.id) : undefined;
 
-  const recentRecords = await fetchAllRecentRecords(supabase, sinceDate, studentIds);
+  const recentRecords = await fetchAllRecentRecords(
+    supabase,
+    sinceDate,
+    studentIds,
+    selectedSubjectId || undefined
+  );
+
+  // 選択科目の student_subject_progress を取得
+  const targetStudentIds = students.map((s) => s.id);
+  let progressList: StudentSubjectProgress[] = [];
+  if (targetStudentIds.length > 0 && selectedSubjectId) {
+    const { data: progressData } = await supabase
+      .from("student_subject_progress")
+      .select("*")
+      .eq("subject_id", selectedSubjectId)
+      .in("student_id", targetStudentIds);
+    progressList = (progressData ?? []) as StudentSubjectProgress[];
+  }
+  const progressMap = new Map(progressList.map((p) => [p.student_id, p]));
 
   // 概要統計
   const totalStudents = students.length;
@@ -141,10 +178,10 @@ export default async function TeacherHomePage({ searchParams }: Props) {
         )
       : 0;
 
-  // グレード分布データ
+  // グレード分布データ（student_subject_progress から）
   const gradeCountMap = new Map<string, number>();
-  for (const s of students) {
-    gradeCountMap.set(s.current_grade, (gradeCountMap.get(s.current_grade) ?? 0) + 1);
+  for (const p of progressList) {
+    gradeCountMap.set(p.current_grade, (gradeCountMap.get(p.current_grade) ?? 0) + 1);
   }
   const gradeDistribution = grades.map((g) => ({
     gradeName: g.grade_name as string,
@@ -173,17 +210,21 @@ export default async function TeacherHomePage({ searchParams }: Props) {
 
   // 頑張っている生徒（連続合格日数が多い順、上位5名）
   const hardworkingStudents = students
-    .filter((s) => s.consecutive_pass_days > 0)
-    .sort((a, b) => b.consecutive_pass_days - a.consecutive_pass_days)
+    .map((s) => ({ student: s, progress: progressMap.get(s.id) }))
+    .filter((x) => x.progress && x.progress.consecutive_pass_days > 0)
+    .sort((a, b) => b.progress!.consecutive_pass_days - a.progress!.consecutive_pass_days)
     .slice(0, 5);
 
   // サボっている生徒（最終受験日が古い順、今日受験済みは除外、上位5名）
   const slackingStudents = students
-    .filter((s) => s.last_challenge_date !== todayJST)
+    .map((s) => ({ student: s, progress: progressMap.get(s.id) }))
+    .filter((x) => !x.progress?.last_challenge_date || x.progress.last_challenge_date !== todayJST)
     .sort((a, b) => {
-      if (!a.last_challenge_date) return -1;
-      if (!b.last_challenge_date) return 1;
-      return a.last_challenge_date.localeCompare(b.last_challenge_date);
+      const aDate = a.progress?.last_challenge_date;
+      const bDate = b.progress?.last_challenge_date;
+      if (!aDate) return -1;
+      if (!bDate) return 1;
+      return aDate.localeCompare(bDate);
     })
     .slice(0, 5);
 
@@ -210,7 +251,7 @@ export default async function TeacherHomePage({ searchParams }: Props) {
       </div>
 
       {/* フィルター */}
-      <DashboardFilter />
+      <DashboardFilter subjects={subjects} selectedSubjectId={selectedSubjectId} />
 
       {filterLabel && (
         <p className="text-xs text-gray-500">
@@ -250,7 +291,7 @@ export default async function TeacherHomePage({ searchParams }: Props) {
                 <span>連続合格</span>
               </div>
               <ul className="space-y-2">
-                {hardworkingStudents.map((s) => (
+                {hardworkingStudents.map(({ student: s, progress: p }) => (
                   <li
                     key={s.id}
                     className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2"
@@ -263,11 +304,11 @@ export default async function TeacherHomePage({ searchParams }: Props) {
                         {s.name}
                       </span>
                       <span className="ml-2 text-xs text-gray-500">
-                        {s.current_grade}
+                        {p?.current_grade ?? "-"}
                       </span>
                     </div>
                     <span className="text-sm font-bold text-green-700">
-                      {s.consecutive_pass_days}日連続合格
+                      {p?.consecutive_pass_days ?? 0}日連続合格
                     </span>
                   </li>
                 ))}
@@ -292,7 +333,7 @@ export default async function TeacherHomePage({ searchParams }: Props) {
                 <span>最終受験日</span>
               </div>
               <ul className="space-y-2">
-                {slackingStudents.map((s) => (
+                {slackingStudents.map(({ student: s, progress: p }) => (
                   <li
                     key={s.id}
                     className="flex items-center justify-between rounded-lg bg-orange-50 px-3 py-2"
@@ -305,12 +346,12 @@ export default async function TeacherHomePage({ searchParams }: Props) {
                         {s.name}
                       </span>
                       <span className="ml-2 text-xs text-gray-500">
-                        {s.current_grade}
+                        {p?.current_grade ?? "-"}
                       </span>
                     </div>
                     <span className="text-sm font-bold text-orange-700">
-                      最終受験日：{s.last_challenge_date
-                        ? formatDateShort(s.last_challenge_date)
+                      最終受験日：{p?.last_challenge_date
+                        ? formatDateShort(p.last_challenge_date)
                         : "なし"}
                     </span>
                   </li>
