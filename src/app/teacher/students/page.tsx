@@ -125,7 +125,7 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   // 表示中の生徒の選択科目の進捗を取得
-  const progressMap = new Map<string, StudentSubjectProgress>();
+  const progressMap: Record<string, StudentSubjectProgress> = {};
   if (students.length > 0 && selectedSubjectId) {
     const studentIds = students.map((s) => s.id);
     const { data: progressData } = await supabase
@@ -135,7 +135,7 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
       .in("student_id", studentIds);
 
     for (const p of (progressData ?? []) as StudentSubjectProgress[]) {
-      progressMap.set(p.student_id, p);
+      progressMap[p.student_id] = p;
     }
   }
 
@@ -143,7 +143,7 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
   const recentDates = getRecentDates(3);
   const oldestDate = recentDates[recentDates.length - 1];
 
-  const scoreMap = new Map<string, Map<string, number | null>>();
+  const scoreMap: Record<string, Record<string, number | null>> = {};
 
   if (students.length > 0) {
     const studentIds = students.map((s) => s.id);
@@ -164,12 +164,12 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
 
     for (const record of allRecords) {
       const date = record.taken_at.slice(0, 10);
-      if (!scoreMap.has(record.student_id)) {
-        scoreMap.set(record.student_id, new Map());
+      if (!scoreMap[record.student_id]) {
+        scoreMap[record.student_id] = {};
       }
-      const studentMap = scoreMap.get(record.student_id)!;
-      if (!studentMap.has(date)) {
-        studentMap.set(date, record.score);
+      const studentMap = scoreMap[record.student_id];
+      if (!(date in studentMap)) {
+        studentMap[date] = record.score;
       }
     }
   }

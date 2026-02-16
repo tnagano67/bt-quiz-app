@@ -142,6 +142,75 @@ type ImportResult = {
   errors: string[];
 };
 
+export async function updateStudent(
+  id: string,
+  input: StudentInput
+): Promise<Result> {
+  const { error } = await verifyTeacher();
+  if (error) return error;
+
+  const supabase = await createClient();
+
+  // email 重複チェック（自身を除外）
+  const { data: existing } = await supabase
+    .from("students")
+    .select("id")
+    .eq("email", input.email)
+    .neq("id", id)
+    .single();
+
+  if (existing) {
+    return {
+      success: false,
+      message: `メールアドレス ${input.email} はすでに登録されています`,
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("students")
+    .update({
+      email: input.email,
+      year: input.year,
+      class: input.class,
+      number: input.number,
+      name: input.name,
+    })
+    .eq("id", id);
+
+  if (updateError) {
+    return { success: false, message: "生徒の更新に失敗しました" };
+  }
+
+  revalidatePath("/teacher/students");
+  return { success: true };
+}
+
+export async function deleteStudent(id: string): Promise<Result> {
+  const { error } = await verifyTeacher();
+  if (error) return error;
+
+  const supabase = await createClient();
+
+  // 関連データを先に削除
+  await supabase.from("quiz_records").delete().eq("student_id", id);
+  await supabase
+    .from("student_subject_progress")
+    .delete()
+    .eq("student_id", id);
+
+  const { error: deleteError } = await supabase
+    .from("students")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    return { success: false, message: "生徒の削除に失敗しました" };
+  }
+
+  revalidatePath("/teacher/students");
+  return { success: true };
+}
+
 export async function importStudents(
   rows: StudentInput[]
 ): Promise<ImportResult> {

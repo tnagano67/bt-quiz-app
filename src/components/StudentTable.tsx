@@ -1,12 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { formatDateShort } from "@/lib/date-utils";
+import { deleteStudent } from "@/app/teacher/students/actions";
 import type { Student, StudentSubjectProgress } from "@/lib/types/database";
 
 type Props = {
   students: Student[];
   recentDates: string[];
-  scoreMap: Map<string, Map<string, number | null>>;
-  progressMap: Map<string, StudentSubjectProgress>;
+  scoreMap: Record<string, Record<string, number | null>>;
+  progressMap: Record<string, StudentSubjectProgress>;
 };
 
 export default function StudentTable({
@@ -15,6 +18,14 @@ export default function StudentTable({
   scoreMap,
   progressMap,
 }: Props) {
+  const handleDelete = async (student: Student) => {
+    if (!confirm(`${student.name} を削除しますか？関連する受験記録もすべて削除されます。`)) return;
+    const result = await deleteStudent(student.id);
+    if (!result.success) {
+      alert(result.message ?? "削除に失敗しました");
+    }
+  };
+
   if (students.length === 0) {
     return (
       <div className="rounded-lg bg-gray-50 p-8 text-center text-sm text-gray-500">
@@ -55,12 +66,15 @@ export default function StudentTable({
                 {formatDateShort(date)}
               </th>
             ))}
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-medium text-gray-600">
+              操作
+            </th>
           </tr>
         </thead>
         <tbody>
           {students.map((student) => {
-            const studentScores = scoreMap.get(student.id);
-            const progress = progressMap.get(student.id);
+            const studentScores = scoreMap[student.id];
+            const progress = progressMap[student.id];
             return (
               <tr
                 key={student.id}
@@ -90,7 +104,7 @@ export default function StudentTable({
                     : "-"}
                 </td>
                 {recentDates.map((date) => {
-                  const score = studentScores?.get(date) ?? null;
+                  const score = studentScores?.[date] ?? null;
                   return (
                     <td
                       key={date}
@@ -114,6 +128,22 @@ export default function StudentTable({
                     </td>
                   );
                 })}
+                <td className="whitespace-nowrap px-3 py-2">
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/teacher/students/${student.id}/edit`}
+                      className="text-xs text-teal-600 hover:text-teal-800"
+                    >
+                      編集
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(student)}
+                      className="text-xs text-red-500 hover:text-red-700"
+                    >
+                      削除
+                    </button>
+                  </div>
+                </td>
               </tr>
             );
           })}
