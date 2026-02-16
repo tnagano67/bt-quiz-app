@@ -8,9 +8,30 @@ import type {
   StudentSubjectProgress,
 } from "@/lib/types/database";
 import { getTodayJST, getRecentDates, formatDateShort, toJSTDateString } from "@/lib/date-utils";
-import GradeDistributionChart from "@/components/GradeDistributionChart";
-import PassRateTrendChart from "@/components/PassRateTrendChart";
+import dynamic from "next/dynamic";
 import DashboardFilter from "@/components/DashboardFilter";
+
+const GradeDistributionChart = dynamic(
+  () => import("@/components/GradeDistributionChart"),
+  {
+    loading: () => (
+      <div className="flex h-64 items-center justify-center rounded-xl border border-gray-200 bg-white">
+        <p className="text-sm text-gray-400">チャートを読み込み中...</p>
+      </div>
+    ),
+  }
+);
+
+const PassRateTrendChart = dynamic(
+  () => import("@/components/PassRateTrendChart"),
+  {
+    loading: () => (
+      <div className="flex h-64 items-center justify-center rounded-xl border border-gray-200 bg-white">
+        <p className="text-sm text-gray-400">チャートを読み込み中...</p>
+      </div>
+    ),
+  }
+);
 
 type RecentRecord = { taken_at: string; passed: boolean; score: number };
 
@@ -130,6 +151,7 @@ export default async function TeacherHomePage({ searchParams }: Props) {
       .order("display_order", { ascending: true }),
   ]);
 
+  if (gradesResult.error) throw new Error("グレード定義の取得に失敗しました");
   const grades = gradesResult.data ?? [];
 
   // フィルターがある場合は student_ids で quiz_records を絞り込む
@@ -145,7 +167,7 @@ export default async function TeacherHomePage({ searchParams }: Props) {
   // 選択科目の student_subject_progress を取得
   // .in() に大量の UUID を渡すと URL 長制限を超えるためページネーションで取得
   const targetStudentIds = students.map((s) => s.id);
-  let progressList: StudentSubjectProgress[] = [];
+  const progressList: StudentSubjectProgress[] = [];
   if (selectedSubjectId) {
     if (hasFilter && targetStudentIds.length > 0) {
       // フィルターあり: student_id で絞り込み（バッチ分割）

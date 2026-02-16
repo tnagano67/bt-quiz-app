@@ -79,15 +79,20 @@ async function createProgressForStudent(studentId: string) {
   const firstGrades = await getFirstGradeNames();
 
   if (firstGrades.length > 0) {
-    await supabase.from("student_subject_progress").insert(
-      firstGrades.map((fg) => ({
-        student_id: studentId,
-        subject_id: fg.subject_id,
-        current_grade: fg.grade_name,
-        consecutive_pass_days: 0,
-        last_challenge_date: null,
-      }))
-    );
+    const { error: progressError } = await supabase
+      .from("student_subject_progress")
+      .insert(
+        firstGrades.map((fg) => ({
+          student_id: studentId,
+          subject_id: fg.subject_id,
+          current_grade: fg.grade_name,
+          consecutive_pass_days: 0,
+          last_challenge_date: null,
+        }))
+      );
+    if (progressError) {
+      console.error("Failed to create progress for student:", progressError);
+    }
   }
 }
 
@@ -192,11 +197,21 @@ export async function deleteStudent(id: string): Promise<Result> {
   const supabase = await createClient();
 
   // 関連データを先に削除
-  await supabase.from("quiz_records").delete().eq("student_id", id);
-  await supabase
+  const { error: recordsError } = await supabase
+    .from("quiz_records")
+    .delete()
+    .eq("student_id", id);
+  if (recordsError) {
+    return { success: false, message: "受験記録の削除に失敗しました" };
+  }
+
+  const { error: progressError } = await supabase
     .from("student_subject_progress")
     .delete()
     .eq("student_id", id);
+  if (progressError) {
+    return { success: false, message: "進捗データの削除に失敗しました" };
+  }
 
   const { error: deleteError } = await supabase
     .from("students")
@@ -301,9 +316,12 @@ export async function importStudents(
 
           // 1000件ずつバッチで挿入
           for (let i = 0; i < progressRows.length; i += 1000) {
-            await supabase
+            const { error: batchError } = await supabase
               .from("student_subject_progress")
               .insert(progressRows.slice(i, i + 1000));
+            if (batchError) {
+              errors.push(`進捗データの作成に失敗しました: ${batchError.message}`);
+            }
           }
         }
       }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 export default function TeachersError({
   error,
   reset,
@@ -7,6 +9,10 @@ export default function TeachersError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    console.error("TeachersError:", error.message, error.digest ?? "");
+  }, [error]);
+
   return (
     <div className="rounded-lg bg-red-50 p-8 text-center">
       <p className="text-lg font-bold text-red-800">エラーが発生しました</p>

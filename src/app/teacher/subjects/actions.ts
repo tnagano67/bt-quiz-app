@@ -121,15 +121,20 @@ export async function createSubject(input: SubjectInput): Promise<Result> {
   // 1000件ずつバッチで progress を作成
   for (let i = 0; i < allStudentIds.length; i += PAGE_SIZE) {
     const batch = allStudentIds.slice(i, i + PAGE_SIZE);
-    await supabase.from("student_subject_progress").insert(
-      batch.map((studentId) => ({
-        student_id: studentId,
-        subject_id: newSubject.id,
-        current_grade: initialGrade,
-        consecutive_pass_days: 0,
-        last_challenge_date: null,
-      }))
-    );
+    const { error: batchError } = await supabase
+      .from("student_subject_progress")
+      .insert(
+        batch.map((studentId) => ({
+          student_id: studentId,
+          subject_id: newSubject.id,
+          current_grade: initialGrade,
+          consecutive_pass_days: 0,
+          last_challenge_date: null,
+        }))
+      );
+    if (batchError) {
+      console.error("Failed to create progress batch:", batchError);
+    }
   }
 
   revalidatePath("/teacher/subjects");
@@ -252,10 +257,13 @@ export async function deleteSubject(id: string): Promise<Result> {
   }
 
   // student_subject_progress を削除（CASCADE なので自動だが明示的に）
-  await supabase
+  const { error: progressError } = await supabase
     .from("student_subject_progress")
     .delete()
     .eq("subject_id", id);
+  if (progressError) {
+    return { success: false, message: "進捗データの削除に失敗しました" };
+  }
 
   const { error: deleteError } = await supabase
     .from("subjects")

@@ -61,7 +61,7 @@ export default function StudentTable({
               <th
                 key={date}
                 scope="col"
-                className="whitespace-nowrap px-3 py-2 text-center text-xs font-medium text-gray-600"
+                className="hidden whitespace-nowrap px-3 py-2 text-center text-xs font-medium text-gray-600 lg:table-cell"
               >
                 {formatDateShort(date)}
               </th>
@@ -108,7 +108,7 @@ export default function StudentTable({
                   return (
                     <td
                       key={date}
-                      className="whitespace-nowrap px-3 py-2 text-center"
+                      className="hidden whitespace-nowrap px-3 py-2 text-center lg:table-cell"
                     >
                       {score !== null ? (
                         <span

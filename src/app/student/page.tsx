@@ -1,9 +1,17 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getRecentDates, isTakenToday } from "@/lib/date-utils";
+import dynamic from "next/dynamic";
 import SubjectCard from "@/components/SubjectCard";
-import ScoreChart from "@/components/ScoreChart";
 import Link from "next/link";
+
+const ScoreChart = dynamic(() => import("@/components/ScoreChart"), {
+  loading: () => (
+    <div className="flex h-64 items-center justify-center rounded-xl border border-gray-200 bg-white">
+      <p className="text-sm text-gray-400">チャートを読み込み中...</p>
+    </div>
+  ),
+});
 import type {
   Subject,
   StudentSubjectProgress,
@@ -35,49 +43,56 @@ export default async function StudentHomePage() {
     );
   }
 
-  // 科目一覧を取得
-  const { data: subjectData } = await supabase
-    .from("subjects")
-    .select("*")
-    .order("display_order", { ascending: true });
-  const subjects = (subjectData ?? []) as Subject[];
+  // 直近10日間の日付を事前計算
+  const recentDates = getRecentDates(10);
+  const oldestDate = recentDates[recentDates.length - 1];
 
-  // 全科目の進捗を取得
-  const { data: progressData } = await supabase
-    .from("student_subject_progress")
-    .select("*")
-    .eq("student_id", student.id);
+  // 科目・進捗・グレード・成績を並列取得
+  const [
+    { data: subjectData, error: subjectError },
+    { data: progressData, error: progressError },
+    { data: gradeData, error: gradeError },
+    { data: records, error: recordsError },
+  ] = await Promise.all([
+    supabase
+      .from("subjects")
+      .select("*")
+      .order("display_order", { ascending: true }),
+    supabase
+      .from("student_subject_progress")
+      .select("*")
+      .eq("student_id", student.id),
+    supabase
+      .from("grade_definitions")
+      .select("*")
+      .order("display_order", { ascending: true }),
+    supabase
+      .from("quiz_records")
+      .select("*")
+      .eq("student_id", student.id)
+      .gte("taken_at", `${oldestDate}T00:00:00+09:00`)
+      .order("taken_at", { ascending: false }),
+  ]);
+
+  if (subjectError) throw new Error("科目データの取得に失敗しました");
+  if (progressError) throw new Error("進捗データの取得に失敗しました");
+  if (gradeError) throw new Error("グレードデータの取得に失敗しました");
+  if (recordsError) throw new Error("受験記録の取得に失敗しました");
+
+  const subjects = (subjectData ?? []) as Subject[];
 
   const progressMap = new Map<string, StudentSubjectProgress>();
   for (const p of (progressData ?? []) as StudentSubjectProgress[]) {
     progressMap.set(p.subject_id, p);
   }
 
-  // 全科目のグレード定義を取得
-  const { data: gradeData } = await supabase
-    .from("grade_definitions")
-    .select("*")
-    .order("display_order", { ascending: true });
   const allGrades = (gradeData ?? []) as GradeDefinition[];
-
-  // 科目ごとのグレード情報を整理
   const gradesBySubject = new Map<string, GradeDefinition[]>();
   for (const g of allGrades) {
     const list = gradesBySubject.get(g.subject_id) ?? [];
     list.push(g);
     gradesBySubject.set(g.subject_id, list);
   }
-
-  // 直近10日間の成績を取得（全科目合算）
-  const recentDates = getRecentDates(10);
-  const oldestDate = recentDates[recentDates.length - 1];
-
-  const { data: records } = await supabase
-    .from("quiz_records")
-    .select("*")
-    .eq("student_id", student.id)
-    .gte("taken_at", `${oldestDate}T00:00:00+09:00`)
-    .order("taken_at", { ascending: false });
 
   const allRecords = (records ?? []) as QuizRecord[];
 

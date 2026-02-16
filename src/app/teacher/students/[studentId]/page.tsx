@@ -1,9 +1,17 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getRecentDates } from "@/lib/date-utils";
-import ScoreChart from "@/components/ScoreChart";
+import dynamic from "next/dynamic";
 import StatisticsCard from "@/components/StatisticsCard";
 import Link from "next/link";
+
+const ScoreChart = dynamic(() => import("@/components/ScoreChart"), {
+  loading: () => (
+    <div className="flex h-64 items-center justify-center rounded-xl border border-gray-200 bg-white">
+      <p className="text-sm text-gray-400">チャートを読み込み中...</p>
+    </div>
+  ),
+});
 import type {
   Student,
   Subject,

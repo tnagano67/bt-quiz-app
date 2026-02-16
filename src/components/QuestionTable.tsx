@@ -32,10 +32,10 @@ export default function QuestionTable({ questions }: Props) {
           <tr>
             <th scope="col" className="px-3 py-2 font-medium">ID</th>
             <th scope="col" className="px-3 py-2 font-medium">問題文</th>
-            <th scope="col" className="px-3 py-2 font-medium">選択肢1</th>
-            <th scope="col" className="px-3 py-2 font-medium">選択肢2</th>
-            <th scope="col" className="px-3 py-2 font-medium">選択肢3</th>
-            <th scope="col" className="px-3 py-2 font-medium">選択肢4</th>
+            <th scope="col" className="hidden px-3 py-2 font-medium md:table-cell">選択肢1</th>
+            <th scope="col" className="hidden px-3 py-2 font-medium md:table-cell">選択肢2</th>
+            <th scope="col" className="hidden px-3 py-2 font-medium md:table-cell">選択肢3</th>
+            <th scope="col" className="hidden px-3 py-2 font-medium md:table-cell">選択肢4</th>
             <th scope="col" className="px-3 py-2 font-medium">正解</th>
             <th scope="col" className="px-3 py-2 font-medium">操作</th>
           </tr>
@@ -49,16 +49,16 @@ export default function QuestionTable({ questions }: Props) {
               <td className="max-w-48 truncate px-3 py-2 text-gray-800">
                 {q.question_text}
               </td>
-              <td className="max-w-24 truncate px-3 py-2 text-gray-600">
+              <td className="hidden max-w-24 truncate px-3 py-2 text-gray-600 md:table-cell">
                 {q.choice_1}
               </td>
-              <td className="max-w-24 truncate px-3 py-2 text-gray-600">
+              <td className="hidden max-w-24 truncate px-3 py-2 text-gray-600 md:table-cell">
                 {q.choice_2}
               </td>
-              <td className="max-w-24 truncate px-3 py-2 text-gray-600">
+              <td className="hidden max-w-24 truncate px-3 py-2 text-gray-600 md:table-cell">
                 {q.choice_3}
               </td>
-              <td className="max-w-24 truncate px-3 py-2 text-gray-600">
+              <td className="hidden max-w-24 truncate px-3 py-2 text-gray-600 md:table-cell">
                 {q.choice_4}
               </td>
               <td className="px-3 py-2 text-center font-medium text-teal-700">

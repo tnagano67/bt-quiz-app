@@ -35,26 +35,34 @@ export default async function HistoryPage() {
   const subjectMap = new Map(subjects.map((s) => [s.id, s.name]));
 
   // 直近10件の成績記録
-  const { data: records } = await supabase
+  const { data: records, error: recordsError } = await supabase
     .from("quiz_records")
     .select("*")
     .eq("student_id", student.id)
     .order("taken_at", { ascending: false })
     .limit(10);
 
+  if (recordsError) throw new Error("受験記録の取得に失敗しました");
+
   const allRecords = (records ?? []) as QuizRecord[];
 
-  // 統計
-  const { count: totalCount } = await supabase
-    .from("quiz_records")
-    .select("*", { count: "exact", head: true })
-    .eq("student_id", student.id);
+  // 統計（並列実行）
+  const [
+    { count: totalCount, error: totalError },
+    { count: passCount, error: passError },
+  ] = await Promise.all([
+    supabase
+      .from("quiz_records")
+      .select("*", { count: "exact", head: true })
+      .eq("student_id", student.id),
+    supabase
+      .from("quiz_records")
+      .select("*", { count: "exact", head: true })
+      .eq("student_id", student.id)
+      .eq("passed", true),
+  ]);
 
-  const { count: passCount } = await supabase
-    .from("quiz_records")
-    .select("*", { count: "exact", head: true })
-    .eq("student_id", student.id)
-    .eq("passed", true);
+  if (totalError || passError) throw new Error("統計データの取得に失敗しました");
 
   const totalAttempts = totalCount ?? 0;
   const passRate =
