@@ -143,15 +143,38 @@ export default async function TeacherHomePage({ searchParams }: Props) {
   );
 
   // 選択科目の student_subject_progress を取得
+  // .in() に大量の UUID を渡すと URL 長制限を超えるためページネーションで取得
   const targetStudentIds = students.map((s) => s.id);
   let progressList: StudentSubjectProgress[] = [];
-  if (targetStudentIds.length > 0 && selectedSubjectId) {
-    const { data: progressData } = await supabase
-      .from("student_subject_progress")
-      .select("*")
-      .eq("subject_id", selectedSubjectId)
-      .in("student_id", targetStudentIds);
-    progressList = (progressData ?? []) as StudentSubjectProgress[];
+  if (selectedSubjectId) {
+    if (hasFilter && targetStudentIds.length > 0) {
+      // フィルターあり: student_id で絞り込み（バッチ分割）
+      const BATCH_SIZE = 200;
+      for (let i = 0; i < targetStudentIds.length; i += BATCH_SIZE) {
+        const batch = targetStudentIds.slice(i, i + BATCH_SIZE);
+        const { data } = await supabase
+          .from("student_subject_progress")
+          .select("*")
+          .eq("subject_id", selectedSubjectId)
+          .in("student_id", batch);
+        if (data) progressList.push(...(data as StudentSubjectProgress[]));
+      }
+    } else {
+      // フィルターなし: subject_id のみで全件取得（.in() 不要）
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      while (true) {
+        const { data } = await supabase
+          .from("student_subject_progress")
+          .select("*")
+          .eq("subject_id", selectedSubjectId)
+          .range(from, from + PAGE_SIZE - 1);
+        if (!data || data.length === 0) break;
+        progressList.push(...(data as StudentSubjectProgress[]));
+        if (data.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+    }
   }
   const progressMap = new Map(progressList.map((p) => [p.student_id, p]));
 
