@@ -311,6 +311,18 @@ CREATE TABLE student_subject_progress (
 - `quiz_records`: `subject_id UUID NOT NULL REFERENCES subjects(id)` 追加、インデックス追加
 - `students`: `current_grade`, `consecutive_pass_days`, `last_challenge_date` カラム削除（`student_subject_progress` に移行）
 
+### Phase 15: 品質改善（パフォーマンス・エラーハンドリング・モバイル対応） ✅
+
+- **Chart.js 動的インポート**: `teacher/page.tsx`（`GradeDistributionChart`/`PassRateTrendChart`）、`student/page.tsx`（`ScoreChart`）、`teacher/students/[studentId]/page.tsx`（`ScoreChart`）で `next/dynamic` + `loading` プレースホルダーによる遅延読み込みに変更。バンドルサイズ削減。※ Next.js 16 の Server Component では `ssr: false` は使用不可
+- **クエリ並列化**: `student/page.tsx` の4クエリ（subjects/progress/grades/records）を `Promise.all` で並列取得。`student/history/page.tsx` の totalCount/passCount を `Promise.all` で並列実行
+- **エラーハンドリング強化**:
+  - 削除操作の中間エラーチェック: `deleteStudent()` の `quiz_records`/`student_subject_progress` 削除、`deleteSubject()` の `student_subject_progress` 削除
+  - バッチ挿入のエラーチェック: `createProgressForStudent()`、`importStudents()` の progress バッチ、`createSubject()` の progress バッチ
+  - Server Component のクエリエラーチェック: `student/page.tsx`、`student/history/page.tsx`、`teacher/page.tsx` でエラー時に `throw new Error()` → `error.tsx` へフォールバック
+  - 全 `error.tsx`（6ファイル）に `useEffect` で `error.digest` のコンソールログ出力を追加（本番デバッグ用）
+- **モバイルテーブル対応**: `StudentTable` の日付スコア列に `hidden lg:table-cell`、`QuestionTable` の選択肢1〜4列に `hidden md:table-cell` を追加
+- `teacher/page.tsx` の `progressList` を `let` → `const` に修正（lint エラー対応）
+
 ---
 
 ## 今後の候補（未着手）

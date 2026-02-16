@@ -14,7 +14,7 @@ BT管理システム — 教育機関向け小テスト・成績管理システ�
 - **React 19**
 - **Tailwind CSS 4**（`@import "tailwindcss"` 構文、`@theme inline` でカスタムプロパティ定義 — `tailwind.config` ファイルなし）
 - **Supabase**（`@supabase/ssr` でSSR対応認証、`@supabase/supabase-js` でDB操作）
-- **Chart.js** + react-chartjs-2（成績チャート）
+- **Chart.js** + react-chartjs-2（成績チャート、`next/dynamic` で遅延読み込み）
 - **date-fns** + date-fns-tz（Asia/Tokyo タイムゾーン対応）
 - **ESLint 9** flat config（`eslint.config.mjs`、`eslint-config-next/core-web-vitals` + `/typescript`）
 - **Vitest** でユニットテスト
@@ -67,18 +67,19 @@ npm run test:e2e:headed  # ブラウザ表示付きで実行
 - `/teacher/export` — 成績CSVエクスポート（Client Component、フィルター・件数確認・ダウンロード）
 - `/api/teacher/export` — CSVダウンロード用 Route Handler（BOM付きUTF-8）
 
-各ルートに `loading.tsx`（スケルトンUI）と `error.tsx`（リトライボタン付き）を配置済み。
+各ルートに `loading.tsx`（スケルトンUI）と `error.tsx`（リトライボタン付き、`useEffect` で `error.digest` をコンソールにログ出力）を配置済み。
 
 ### ロール分離とカラーテーマ
 
 - **生徒側**: 青系（`blue-600` 等）、`max-w-3xl` コンテナ
 - **教員側**: ティール系（`teal-700` 等）、`max-w-5xl` コンテナ（テーブル用に広め）
 - 各ロールは独立した `layout.tsx` と専用ヘッダー（`Header.tsx` / `TeacherHeader.tsx`）を持つ
+- **モバイルテーブル対応**: `StudentTable` は日付スコア列を `hidden lg:table-cell` でデスクトップのみ表示。`QuestionTable` は選択肢1〜4列を `hidden md:table-cell` でデスクトップのみ表示
 
 ### Server Component / Client Component の使い分け
 
 - **Server Component**: ホーム画面、履歴、教員一覧/詳細ページ、テーブル系コンポーネント（`StudentTable`、`QuestionTable`、`GradeTable`、`SubjectTable`）、表示系コンポーネント（`SubjectCard`、`QuizQuestion`、`QuizResult`、`HistoryItem`、`StatisticsCard`）
-- **Client Component** (`"use client"`): クイズページ、ヘッダー（`usePathname`）、`ScoreChart`/`GradeDistributionChart`/`PassRateTrendChart`（Chart.js）、`StudentFilter`（URL パラメータ操作）、フォーム系（`QuestionForm`/`StudentForm`/`GradeForm`/`SubjectForm`）、CSVインポート系（`CsvImport`/`StudentCsvImport`）、`Pagination`、ログイン画面、エクスポートページ
+- **Client Component** (`"use client"`): クイズページ、ヘッダー（`usePathname`）、`ScoreChart`/`GradeDistributionChart`/`PassRateTrendChart`（Chart.js、各ページから `next/dynamic` で遅延読み込み）、`StudentFilter`（URL パラメータ操作）、フォーム系（`QuestionForm`/`StudentForm`/`GradeForm`/`SubjectForm`）、CSVインポート系（`CsvImport`/`StudentCsvImport`）、`Pagination`、ログイン画面、エクスポートページ
 
 ### 主要な lib モジュール
 
@@ -142,6 +143,8 @@ E2Eテスト実行時は追加で以下が必要:
 - **行数制限**: Supabase（PostgREST）はデフォルトで最大1000行しか返さない。`.limit()` を設定してもサーバー側の `max-rows` 設定で制限される。大量のレコードを取得する場合は `.range()` によるページネーションが必要（参考: `teacher/page.tsx` の `fetchAllRecentRecords()`）。
 - **TIMESTAMPTZ フィルター**: `taken_at` 等の TIMESTAMPTZ カラムに対する `.gte()` / `.lte()` フィルターでは、日付文字列にタイムゾーンを明示する必要がある（例: `${date}T00:00:00+09:00`）。タイムゾーンなしの `YYYY-MM-DD` 文字列では正しくフィルタされない。
 - **`.in()` の URL 長制限**: `.in()` に大量の UUID（1000件超）を渡すと PostgREST の URL 長制限を超えてリクエストが失敗する。フィルタなしなら `.range()` ページネーションで全件取得、フィルタありなら `.in()` を200件ずつバッチ分割して結合する（参考: `teacher/page.tsx` のグレード分布チャート取得）。
+- **クエリ並列化**: 独立したクエリは `Promise.all` で並列実行してパフォーマンスを改善（参考: `student/page.tsx` の4クエリ並列取得、`student/history/page.tsx` の統計2クエリ並列実行）。
+- **クエリエラーチェック**: Server Component のクエリ結果は `error` を必ずチェックし、エラー時は `throw new Error(...)` で `error.tsx` にフォールバックさせる。Server Actions のバッチ操作（削除・挿入）も中間エラーチェックを実施。
 
 ### アクセシビリティ（WCAG AA 準拠）
 
