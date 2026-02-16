@@ -168,8 +168,15 @@ export async function importQuestions(
     return { success: errors.length === 0, inserted: 0, updated: 0, errors };
   }
 
+  // CSV内の question_id 重複を除去（後の行で上書き）
+  const deduped = new Map<number, Omit<QuestionInput, "subject_id">>();
+  for (const row of validRows) {
+    deduped.set(row.question_id, row);
+  }
+  const uniqueRows = Array.from(deduped.values());
+
   // 既存レコードを一括取得
-  const questionIds = validRows.map((r) => r.question_id);
+  const questionIds = uniqueRows.map((r) => r.question_id);
   const { data: existingRows } = await supabase
     .from("questions")
     .select("question_id")
@@ -184,7 +191,7 @@ export async function importQuestions(
   const { error: upsertError } = await supabase
     .from("questions")
     .upsert(
-      validRows.map((row) => ({
+      uniqueRows.map((row) => ({
         subject_id: subjectId,
         question_id: row.question_id,
         question_text: row.question_text,
@@ -203,7 +210,7 @@ export async function importQuestions(
   if (upsertError) {
     errors.push(`一括インポートに失敗しました: ${upsertError.message}`);
   } else {
-    for (const row of validRows) {
+    for (const row of uniqueRows) {
       if (existingIds.has(row.question_id)) {
         updated++;
       } else {
