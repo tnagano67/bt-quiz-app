@@ -323,6 +323,16 @@ CREATE TABLE student_subject_progress (
 - **モバイルテーブル対応**: `StudentTable` の日付スコア列に `hidden lg:table-cell`、`QuestionTable` の選択肢1〜4列に `hidden md:table-cell` を追加
 - `teacher/page.tsx` の `progressList` を `let` → `const` に修正（lint エラー対応）
 
+### Phase 16: 教員編集機能 ✅
+
+- **教員編集ページ追加**: `/teacher/teachers/[teacherId]/edit` — Server Component で教員データ取得、`TeacherForm` に `mode="edit"` + `defaultValues` を渡す
+- **`TeacherForm` 編集モード対応**: `mode`/`defaultValues` props 追加（`StudentForm` と同じパターン）。編集時は `updateTeacher()` を呼び出し、ボタンテキスト切替（「登録する」/「更新する」）
+- **`updateTeacher` Server Action 追加**: メール重複チェック（`.neq("id", id)` で自身を除外）、`.update().select("id")` で更新結果を検証（0 行更新のサイレント失敗を検知）
+- **教員一覧に編集リンク追加**: 各教員行に「編集」リンクを削除ボタンと並べて配置
+- **RLS ポリシー追加**: `teachers` テーブルに UPDATE ポリシーを追加（`EXISTS (SELECT 1 FROM teachers WHERE email = auth.jwt() ->> 'email')`）。RLS 有効テーブルで UPDATE ポリシーが未設定だと、エラーなしで 0 行更新されるサイレント失敗が発生する
+- **ユニットテスト追加**: `updateTeacher` のテスト6件（未認証・非教員・メール重複・正常更新・存在しない教員・DBエラー）
+- **テスト総数**: ユニット 188 → 194件（+6件）
+
 ---
 
 ## 今後の候補（未着手）
@@ -330,4 +340,3 @@ CREATE TABLE student_subject_progress (
 優先度や実装順は未定。必要に応じて選択。
 
 - **パフォーマンス最適化**: ISR/キャッシュ戦略、画像最適化
-- **教員一覧の編集機能**: 教員の名前・メール編集（現在は一覧・登録・削除のみ）

@@ -169,13 +169,18 @@ export async function updateTeacher(
     };
   }
 
-  const { error: updateError } = await supabase
+  const { data: updated, error: updateError } = await supabase
     .from("teachers")
     .update({ email: input.email, name: input.name })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (updateError) {
     return { success: false, message: "教員の更新に失敗しました" };
+  }
+
+  if (!updated || updated.length === 0) {
+    return { success: false, message: "教員が見つかりません" };
   }
 
   revalidatePath("/teacher/teachers");

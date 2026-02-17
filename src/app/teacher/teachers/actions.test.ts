@@ -280,7 +280,9 @@ describe("updateTeacher", () => {
                 : { data: null, error: null }
             );
           }),
-          update: vi.fn(() => makeBuilder({ data: null, error: null })),
+          update: vi.fn(() =>
+            makeBuilder({ data: [{ id: "t1" }], error: null })
+          ),
         };
       }
       return {
@@ -292,6 +294,34 @@ describe("updateTeacher", () => {
       name: "更新名",
     });
     expect(result.success).toBe(true);
+  });
+
+  it("存在しない教員 → エラー", async () => {
+    let teacherSelectCount = 0;
+    mockSetup.supabase.from.mockImplementation((table: string) => {
+      if (table === "teachers") {
+        return {
+          select: vi.fn(() => {
+            teacherSelectCount++;
+            return makeBuilder(
+              teacherSelectCount === 1
+                ? { data: { id: "t1" }, error: null }
+                : { data: null, error: null }
+            );
+          }),
+          update: vi.fn(() => makeBuilder({ data: [], error: null })),
+        };
+      }
+      return {
+        select: vi.fn(() => makeBuilder({ data: null, error: null })),
+      };
+    });
+    const result = await updateTeacher("nonexistent", {
+      email: "updated@example.com",
+      name: "更新名",
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("見つかりません");
   });
 
   it("DB エラー → 失敗メッセージ", async () => {
