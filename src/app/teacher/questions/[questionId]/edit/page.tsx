@@ -23,22 +23,22 @@ export default async function EditQuestionPage({ params }: Props) {
     .single();
   if (!teacher) redirect("/");
 
-  const { data: question } = await supabase
-    .from("questions")
-    .select("*")
-    .eq("question_id", Number(questionId))
-    .single();
+  // 問題と科目一覧を並列取得
+  const [{ data: question }, { data: subjects }] = await Promise.all([
+    supabase
+      .from("questions")
+      .select("*")
+      .eq("question_id", Number(questionId))
+      .single(),
+    supabase.from("subjects").select("id, name"),
+  ]);
 
   if (!question) notFound();
 
   const typedQuestion = question as Question;
-
-  // 科目名を取得
-  const { data: subject } = await supabase
-    .from("subjects")
-    .select("name")
-    .eq("id", typedQuestion.subject_id)
-    .single();
+  const subjectMap = new Map(
+    (subjects ?? []).map((s: Pick<Subject, "id" | "name">) => [s.id, s.name])
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,7 +48,7 @@ export default async function EditQuestionPage({ params }: Props) {
       <QuestionForm
         mode="edit"
         defaultValues={typedQuestion}
-        subjectName={(subject as Subject | null)?.name ?? ""}
+        subjectName={subjectMap.get(typedQuestion.subject_id) ?? ""}
       />
     </div>
   );

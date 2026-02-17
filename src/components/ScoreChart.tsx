@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -38,43 +39,43 @@ export default function ScoreChart({
   title = "直近10日間の成績",
   maxTicksLimit,
 }: Props) {
-  // 古い順に並べる（チャート表示用）
-  const reversed = [...scores].reverse();
+  const data = useMemo(() => {
+    // 古い順に並べる（チャート表示用）
+    const reversed = [...scores].reverse();
+    const labels = reversed.map((e) => formatDateShort(e.date));
+    const passedData = reversed.map((e) =>
+      e.passed === true ? e.score : null
+    );
+    const failedData = reversed.map((e) =>
+      e.passed === false ? e.score : null
+    );
 
-  const labels = reversed.map((e) => formatDateShort(e.date));
+    return {
+      labels,
+      datasets: [
+        {
+          label: "合格",
+          data: passedData,
+          backgroundColor: "#28a745",
+          borderColor: "#28a745",
+          borderWidth: 1,
+          borderRadius: 4,
+          maxBarThickness: 20,
+        },
+        {
+          label: "不合格",
+          data: failedData,
+          backgroundColor: "#dc3545",
+          borderColor: "#dc3545",
+          borderWidth: 1,
+          borderRadius: 4,
+          maxBarThickness: 20,
+        },
+      ],
+    };
+  }, [scores]);
 
-  const passedData = reversed.map((e) =>
-    e.passed === true ? e.score : null
-  );
-  const failedData = reversed.map((e) =>
-    e.passed === false ? e.score : null
-  );
-
-  const data = {
-    labels,
-    datasets: [
-      {
-        label: "合格",
-        data: passedData,
-        backgroundColor: "#28a745",
-        borderColor: "#28a745",
-        borderWidth: 1,
-        borderRadius: 4,
-        maxBarThickness: 20,
-      },
-      {
-        label: "不合格",
-        data: failedData,
-        backgroundColor: "#dc3545",
-        borderColor: "#dc3545",
-        borderWidth: 1,
-        borderRadius: 4,
-        maxBarThickness: 20,
-      },
-    ],
-  };
-
-  const options = {
+  const options = useMemo(() => ({
     responsive: true,
     plugins: {
       legend: {
@@ -93,7 +94,7 @@ export default function ScoreChart({
         ticks: maxTicksLimit ? { maxTicksLimit } : {},
       },
     },
-  };
+  }), [maxTicksLimit]);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

@@ -238,11 +238,10 @@ async function DashboardContent({
   if (hasFilter) {
     // フィルタあり: students の結果を待ってから studentIds を渡す
     [students, gradesResult] = await Promise.all([studentsPromise, gradesPromise]);
-    const studentIds = students.map((s) => s.id);
     recentRecords = await fetchAllRecentRecords(
       supabase,
       sinceDate,
-      studentIds,
+      students.map((s) => s.id),
       selectedSubjectId || undefined
     );
   } else {
@@ -262,16 +261,16 @@ async function DashboardContent({
   if (gradesResult.error) throw new Error("グレード定義の取得に失敗しました");
   const grades = gradesResult.data ?? [];
 
-  // 選択科目の student_subject_progress を取得
-  const targetStudentIds = students.map((s) => s.id);
+  // 生徒IDリストをキャッシュ（以降の progress 取得・バッチ分割で再利用）
+  const studentIds = students.map((s) => s.id);
   const progressList: StudentSubjectProgress[] = [];
   if (selectedSubjectId) {
-    if (hasFilter && targetStudentIds.length > 0) {
+    if (hasFilter && studentIds.length > 0) {
       // フィルターあり: student_id で絞り込み（バッチ分割・並列実行）
       const BATCH_SIZE = 200;
       const batchPromises: PromiseLike<StudentSubjectProgress[]>[] = [];
-      for (let i = 0; i < targetStudentIds.length; i += BATCH_SIZE) {
-        const batch = targetStudentIds.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < studentIds.length; i += BATCH_SIZE) {
+        const batch = studentIds.slice(i, i + BATCH_SIZE);
         batchPromises.push(
           supabase
             .from("student_subject_progress")

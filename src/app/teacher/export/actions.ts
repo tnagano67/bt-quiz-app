@@ -68,9 +68,10 @@ export async function countExportRows(params: CountParams): Promise<CountResult>
   const allGrades = (gradeData ?? []) as GradeDefinition[];
   const gradeNames = allGrades.map((g) => g.grade_name);
 
-  // グレード範囲フィルター
-  const fromIndex = params.gradeFrom ? gradeNames.indexOf(params.gradeFrom) : -1;
-  const toIndex = params.gradeTo ? gradeNames.indexOf(params.gradeTo) : -1;
+  // グレード範囲フィルター（Map で O(1) ルックアップ）
+  const gradeIndexMap = new Map(gradeNames.map((name, i) => [name, i]));
+  const fromIndex = params.gradeFrom ? (gradeIndexMap.get(params.gradeFrom) ?? -1) : -1;
+  const toIndex = params.gradeTo ? (gradeIndexMap.get(params.gradeTo) ?? -1) : -1;
   const sliceFrom = fromIndex !== -1 ? fromIndex : 0;
   const sliceTo = toIndex !== -1 ? toIndex + 1 : gradeNames.length;
   const gradeFilter =

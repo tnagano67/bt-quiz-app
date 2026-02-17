@@ -20,7 +20,7 @@ const mockSetup = createMockSupabase({
       select: { data: [{ id: "sub1" }], error: null },
     },
     grade_definitions: {
-      select: { data: { grade_name: "10級" }, error: null },
+      select: { data: [{ subject_id: "sub1", grade_name: "10級" }], error: null },
     },
     student_subject_progress: {
       insert: { data: null, error: null },
@@ -66,7 +66,7 @@ describe("createStudent", () => {
       error: null,
     });
     mockSetup.setTableResponse("grade_definitions", "select", {
-      data: { grade_name: "10級" },
+      data: [{ subject_id: "sub1", grade_name: "10級" }],
       error: null,
     });
     mockSetup.setTableResponse("student_subject_progress", "insert", {
@@ -149,7 +149,7 @@ describe("importStudents", () => {
       error: null,
     });
     mockSetup.setTableResponse("grade_definitions", "select", {
-      data: { grade_name: "10級" },
+      data: [{ subject_id: "sub1", grade_name: "10級" }],
       error: null,
     });
     mockSetup.setTableResponse("student_subject_progress", "insert", {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -17,8 +18,34 @@ type Props = {
   data: { gradeName: string; percentage: number }[];
 };
 
+const options = {
+  indexAxis: "y" as const,
+  responsive: true,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        label: (context: TooltipItem<"bar">) => `${context.parsed.x ?? 0}%`,
+      },
+    },
+  },
+  scales: {
+    x: {
+      beginAtZero: true,
+      max: 100,
+      ticks: {
+        callback: (value: string | number) => `${value}%`,
+      },
+      title: { display: true, text: "割合（%）" },
+    },
+    y: {
+      title: { display: false },
+    },
+  },
+};
+
 export default function GradeDistributionChart({ data }: Props) {
-  const chartData = {
+  const chartData = useMemo(() => ({
     labels: data.map((d) => d.gradeName),
     datasets: [
       {
@@ -31,33 +58,7 @@ export default function GradeDistributionChart({ data }: Props) {
         maxBarThickness: 28,
       },
     ],
-  };
-
-  const options = {
-    indexAxis: "y" as const,
-    responsive: true,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (context: TooltipItem<"bar">) => `${context.parsed.x ?? 0}%`,
-        },
-      },
-    },
-    scales: {
-      x: {
-        beginAtZero: true,
-        max: 100,
-        ticks: {
-          callback: (value: string | number) => `${value}%`,
-        },
-        title: { display: true, text: "割合（%）" },
-      },
-      y: {
-        title: { display: false },
-      },
-    },
-  };
+  }), [data]);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -27,8 +28,26 @@ type Props = {
   data: { date: string; rate: number | null }[];
 };
 
+const options = {
+  responsive: true,
+  plugins: {
+    legend: { display: false },
+  },
+  scales: {
+    y: {
+      min: 0,
+      max: 100,
+      title: { display: true, text: "合格率（%）" },
+    },
+    x: {
+      title: { display: false },
+      ticks: { maxTicksLimit: 10 },
+    },
+  },
+};
+
 export default function PassRateTrendChart({ data }: Props) {
-  const chartData = {
+  const chartData = useMemo(() => ({
     labels: data.map((d) => formatDateShort(d.date)),
     datasets: [
       {
@@ -43,25 +62,7 @@ export default function PassRateTrendChart({ data }: Props) {
         spanGaps: false,
       },
     ],
-  };
-
-  const options = {
-    responsive: true,
-    plugins: {
-      legend: { display: false },
-    },
-    scales: {
-      y: {
-        min: 0,
-        max: 100,
-        title: { display: true, text: "合格率（%）" },
-      },
-      x: {
-        title: { display: false },
-        ticks: { maxTicksLimit: 10 },
-      },
-    },
-  };
+  }), [data]);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

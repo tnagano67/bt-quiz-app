@@ -9,8 +9,9 @@ export function getGradeFilter(
   gradeFrom: string | null,
   gradeTo: string | null
 ): string[] | null {
-  const fromIndex = gradeFrom ? gradeNames.indexOf(gradeFrom) : -1;
-  const toIndex = gradeTo ? gradeNames.indexOf(gradeTo) : -1;
+  const gradeIndexMap = new Map(gradeNames.map((name, i) => [name, i]));
+  const fromIndex = gradeFrom ? (gradeIndexMap.get(gradeFrom) ?? -1) : -1;
+  const toIndex = gradeTo ? (gradeIndexMap.get(gradeTo) ?? -1) : -1;
   const sliceFrom = fromIndex !== -1 ? fromIndex : 0;
   const sliceTo = toIndex !== -1 ? toIndex + 1 : gradeNames.length;
   if (fromIndex !== -1 || toIndex !== -1) {

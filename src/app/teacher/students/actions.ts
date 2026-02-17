@@ -39,38 +39,38 @@ async function verifyTeacher(): Promise<{ error?: Result }> {
   return {};
 }
 
-/** 全科目の最初のグレード名を取得 */
+/** 全科目の最初のグレード名を取得（1回のクエリで一括取得） */
 async function getFirstGradeNames(): Promise<
   { subject_id: string; grade_name: string }[]
 > {
   const supabase = await createClient();
 
-  // 全科目を取得
-  const { data: subjects } = await supabase
-    .from("subjects")
-    .select("id")
-    .order("display_order", { ascending: true });
+  // 全科目と全グレード定義を並列取得
+  const [{ data: subjects }, { data: allGrades }] = await Promise.all([
+    supabase
+      .from("subjects")
+      .select("id")
+      .order("display_order", { ascending: true }),
+    supabase
+      .from("grade_definitions")
+      .select("subject_id, grade_name")
+      .order("display_order", { ascending: true }),
+  ]);
 
   if (!subjects || subjects.length === 0) return [];
 
-  const result: { subject_id: string; grade_name: string }[] = [];
-
-  for (const subject of subjects) {
-    const { data: firstGrade } = await supabase
-      .from("grade_definitions")
-      .select("grade_name")
-      .eq("subject_id", subject.id)
-      .order("display_order", { ascending: true })
-      .limit(1)
-      .single();
-
-    result.push({
-      subject_id: subject.id,
-      grade_name: firstGrade?.grade_name ?? "",
-    });
+  // 科目ごとの最初のグレード名をMapで管理（display_order昇順なので最初に見つかったものが先頭）
+  const firstGradeBySubject = new Map<string, string>();
+  for (const g of allGrades ?? []) {
+    if (!firstGradeBySubject.has(g.subject_id)) {
+      firstGradeBySubject.set(g.subject_id, g.grade_name);
+    }
   }
 
-  return result;
+  return subjects.map((subject) => ({
+    subject_id: subject.id,
+    grade_name: firstGradeBySubject.get(subject.id) ?? "",
+  }));
 }
 
 /** 生徒作成後に全科目分の student_subject_progress を一括作成 */
