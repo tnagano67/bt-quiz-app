@@ -68,7 +68,7 @@ export default function StudentTable({
             return (
               <tr
                 key={student.id}
-                className="border-b border-gray-100 hover:bg-gray-50"
+                className="border-b border-gray-100 hover:bg-gray-100"
               >
                 <td className="whitespace-nowrap px-3 py-2 text-gray-700">{student.year}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-gray-700">{student.class}</td>
@@ -122,7 +122,7 @@ export default function StudentTable({
                   <div className="flex gap-2">
                     <Link
                       href={`/teacher/students/${student.id}/edit`}
-                      className="text-xs text-teal-600 hover:text-teal-800"
+                      className="rounded px-2 py-1 text-sm text-teal-600 hover:bg-teal-50 hover:text-teal-800"
                     >
                       編集
                     </Link>

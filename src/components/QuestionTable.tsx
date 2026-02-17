@@ -32,7 +32,7 @@ export default function QuestionTable({ questions }: Props) {
         </thead>
         <tbody>
           {questions.map((q) => (
-            <tr key={q.id} className="border-b border-gray-100 last:border-b-0">
+            <tr key={q.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-100">
               <td className="px-3 py-2 font-mono text-xs text-gray-600">
                 {q.question_id}
               </td>
@@ -58,7 +58,7 @@ export default function QuestionTable({ questions }: Props) {
                 <div className="flex gap-2">
                   <Link
                     href={`/teacher/questions/${q.question_id}/edit`}
-                    className="text-xs text-teal-600 hover:text-teal-800"
+                    className="rounded px-2 py-1 text-sm text-teal-600 hover:bg-teal-50 hover:text-teal-800"
                   >
                     編集
                   </Link>

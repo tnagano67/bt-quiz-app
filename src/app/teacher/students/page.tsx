@@ -50,12 +50,9 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
   ]);
   if (!teacher) redirect("/");
 
-  let subjects: Subject[];
-  let selectedSubjectId: string;
+  const subjects = (subjectData ?? []) as Subject[];
+  const selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
   let allGrades: GradeDefinition[];
-
-  subjects = (subjectData ?? []) as Subject[];
-  selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
 
   if (selectedSubjectId) {
     const { data: gradeData } = await supabase

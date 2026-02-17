@@ -31,7 +31,7 @@ export default function GradeTable({ grades }: Props) {
         </thead>
         <tbody>
           {grades.map((g) => (
-            <tr key={g.id} className="border-b border-gray-100 last:border-b-0">
+            <tr key={g.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-100">
               <td className="px-3 py-2 font-mono text-xs text-gray-600">
                 {g.display_order}
               </td>
@@ -54,7 +54,7 @@ export default function GradeTable({ grades }: Props) {
                 <div className="flex gap-2">
                   <Link
                     href={`/teacher/grades/${g.id}/edit`}
-                    className="text-xs text-teal-600 hover:text-teal-800"
+                    className="rounded px-2 py-1 text-sm text-teal-600 hover:bg-teal-50 hover:text-teal-800"
                   >
                     編集
                   </Link>

@@ -364,7 +364,7 @@ async function DashboardContent({
     .sort((a, b) => b.progress!.consecutive_pass_days - a.progress!.consecutive_pass_days)
     .slice(0, 5);
 
-  // サボっている生徒（最終受験日が古い順、今日受験済みは除外、上位5名）
+  // 最近挑戦していない生徒（最終受験日が古い順、今日受験済みは除外、上位5名）
   const slackingStudents = students
     .map((s) => ({ student: s, progress: progressMap.get(s.id) }))
     .filter((x) => !x.progress?.last_challenge_date || x.progress.last_challenge_date !== todayJST)
@@ -393,7 +393,7 @@ async function DashboardContent({
         <PassRateTrendChart data={passRateTrend} />
       </div>
 
-      {/* 頑張っている生徒 / サボっている生徒 */}
+      {/* 頑張っている生徒 / 最近挑戦していない生徒 */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* 頑張っている生徒 */}
         <div className="rounded-xl border border-green-200 bg-white p-4 shadow-sm">
@@ -437,10 +437,10 @@ async function DashboardContent({
           )}
         </div>
 
-        {/* サボっている生徒 */}
+        {/* 最近挑戦していない生徒 */}
         <div className="rounded-xl border border-orange-200 bg-white p-4 shadow-sm">
           <h3 className="mb-3 text-sm font-bold text-orange-700">
-            サボっている生徒
+            最近挑戦していない生徒
           </h3>
           {slackingStudents.length === 0 ? (
             <p className="py-4 text-center text-sm text-gray-400">
