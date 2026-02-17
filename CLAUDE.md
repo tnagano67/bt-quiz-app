@@ -81,7 +81,7 @@ npm run test:e2e:headed  # ブラウザ表示付きで実行
 ### Server Component / Client Component の使い分け
 
 - **Server Component**: ホーム画面、履歴、教員一覧/詳細ページ、テーブル系コンポーネント（`StudentTable`、`QuestionTable`、`GradeTable`、`SubjectTable`）、表示系コンポーネント（`SubjectCard`、`QuizQuestion`、`QuizResult`、`HistoryItem`、`StatisticsCard`）
-- **Client Component** (`"use client"`): クイズページ、ヘッダー（`usePathname`）、`ScoreChart`/`GradeDistributionChart`/`PassRateTrendChart`（Chart.js、各ページから `next/dynamic` で遅延読み込み）、`StudentFilter`（URL パラメータ操作）、フォーム系（`QuestionForm`/`StudentForm`/`GradeForm`/`SubjectForm`/`TeacherForm`）、CSVインポート系（`CsvImport`/`StudentCsvImport`）、`Pagination`、`ConfirmDialog`（削除確認モーダル）、各 `*DeleteButton`（5種）、ログイン画面、エクスポートページ
+- **Client Component** (`"use client"`): クイズページ、ヘッダー（`usePathname`）、`ScoreChart`/`GradeDistributionChart`/`PassRateTrendChart`（Chart.js、各ページから `next/dynamic` で遅延読み込み、`useMemo` で `data`/`options` メモ化）、`StudentFilter`（URL パラメータ操作）、フォーム系（`QuestionForm`/`StudentForm`/`GradeForm`/`SubjectForm`/`TeacherForm`）、CSVインポート系（`CsvImport`/`StudentCsvImport`）、`Pagination`、`ConfirmDialog`（削除確認モーダル）、各 `*DeleteButton`（5種）、ログイン画面、エクスポートページ
 
 ### 主要な lib モジュール
 
@@ -92,7 +92,7 @@ npm run test:e2e:headed  # ブラウザ表示付きで実行
 - `src/lib/date-utils.ts` — `getTodayJST`、`getRecentDates`、`isTakenToday` 等（Asia/Tokyo）
 - `src/lib/csv-utils.ts` — `parseCsvRows`（RFC 4180 準拠CSVパーサー、クォート内改行対応）、`generateCsvText`（2D配列→CSV文字列変換）
 - `src/lib/validation.ts` — `validateQuestionInput`、`validateStudentInput`、`validateTeacherInput`、`validateSubjectInput`（CSVインポート等の入力値検証を一元化）
-- `src/lib/export-utils.ts` — `getGradeFilter`、`calculateStudentStats`、`formatStudentExportRow`、`formatRecordExportRow`（CSVエクスポートのロジック）
+- `src/lib/export-utils.ts` — `getGradeFilter`（Map O(1) ルックアップ）、`calculateStudentStats`、`formatStudentExportRow`、`formatRecordExportRow`（CSVエクスポートのロジック）
 - `middleware.ts`（ルート） — `/student/*` と `/teacher/*` ルートの認証ガード
 
 ### Server Actions
@@ -100,7 +100,7 @@ npm run test:e2e:headed  # ブラウザ表示付きで実行
 - `src/app/student/quiz/actions.ts` — 小テスト結果保存（認証・本人確認・日次制限・サーバー側再採点・進級計算・DB保存）。進捗は `student_subject_progress` テーブルで科目別に管理
 - `src/app/teacher/subjects/actions.ts` — 科目のCRUD。作成時に全生徒分の `student_subject_progress` を自動作成（1000件バッチ）。削除時に参照チェック
 - `src/app/teacher/questions/actions.ts` — 問題のCRUD + CSVインポート（upsert、`subject_id` 必須、複合 UNIQUE `(subject_id, question_id)`、同一ファイル内の重複 `question_id` は後勝ちで自動重複排除）
-- `src/app/teacher/students/actions.ts` — 生徒のCRUD（登録・編集・削除）+ CSVインポート。作成時に全科目分の `student_subject_progress` を自動作成。削除時は `quiz_records` → `student_subject_progress` → `students` の順に明示的に関連データを先に削除
+- `src/app/teacher/students/actions.ts` — 生徒のCRUD（登録・編集・削除）+ CSVインポート。作成時に全科目分の `student_subject_progress` を自動作成（`getFirstGradeNames()` で全科目・全グレードを2クエリ並列取得 + Map グループ化）。削除時は `quiz_records` → `student_subject_progress` → `students` の順に明示的に関連データを先に削除
 - `src/app/teacher/grades/actions.ts` — グレード定義のCRUD（削除時に `student_subject_progress` の参照チェック、複合 UNIQUE `(subject_id, grade_name)` / `(subject_id, display_order)`）
 - `src/app/teacher/teachers/actions.ts` — 教員のCRUD（登録・編集・削除）+ CSVインポート（upsert + `ignoreDuplicates` で既存メールをスキップ）。`updateTeacher` は `.select("id")` で更新結果を検証（RLS による 0 行更新のサイレント失敗を検知）
 - `src/app/teacher/export/actions.ts` — `countExportRows`（件数プレビュー、科目フィルタ対応）、`getGradeNames`（科目別グレード選択肢取得）、`getSubjects`（科目一覧取得）

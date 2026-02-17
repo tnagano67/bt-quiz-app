@@ -347,6 +347,16 @@ CREATE TABLE student_subject_progress (
 - **ダッシュボード表現修正**: 「サボっている生徒」→「最近挑戦していない生徒」に変更（教育現場にふさわしい表現）
 - **既存 lint エラー修正**: `teacher/students/page.tsx` の `let` → `const` 修正
 
+### Phase 18: パフォーマンス最適化（Vercel React Best Practices） ✅
+
+- **N+1 クエリ排除**: `getFirstGradeNames()`（`students/actions.ts`）のループ内 DB 呼び出し（科目数 × 1クエリ）を、全科目＋全グレード定義の 2クエリ並列取得 + Map グループ化に置き換え
+- **Map O(1) ルックアップ**: `export-utils.ts` の `getGradeFilter()` と `export/actions.ts` の `countExportRows()` で `.indexOf()` を `Map` ベースの O(1) ルックアップに変更
+- **Chart.js useMemo 化**: `ScoreChart`、`GradeDistributionChart`、`PassRateTrendChart` の `data`/`options` オブジェクトを `useMemo` でメモ化。`GradeDistributionChart` と `PassRateTrendChart` は `options` をコンポーネント外に巻き上げ（props に依存しないため）
+- **重複 `.map()` キャッシュ**: `teacher/page.tsx` の `DashboardContent` で `students.map(s => s.id)` を一度だけ実行し `studentIds` 変数に格納、以降の progress 取得・バッチ分割で再利用
+- **問題編集ページ並列フェッチ**: `questions/[questionId]/edit/page.tsx` の問題データと科目名の逐次取得を `Promise.all` で並列化。科目は全件取得して Map でルックアップ
+- **テスト修正**: `students/actions.test.ts` の `grade_definitions` モックレスポンスを配列形式に変更（`getFirstGradeNames` の一括取得に対応）
+- **テスト総数**: ユニット 194件（変更なし）
+
 ---
 
 ## 今後の候補（未着手）
