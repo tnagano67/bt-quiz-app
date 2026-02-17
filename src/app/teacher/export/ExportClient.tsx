@@ -25,9 +25,16 @@ export default function ExportClient({ subjects }: Props) {
 
   // 科目変更時にグレード一覧を更新
   useEffect(() => {
-    if (subjectId) {
-      getGradeNames(subjectId).then(setGradeNames);
-    }
+    if (!subjectId) return;
+    let cancelled = false;
+    getGradeNames(subjectId)
+      .then((names) => {
+        if (!cancelled) setGradeNames(names);
+      })
+      .catch(() => {
+        if (!cancelled) setGradeNames([]);
+      });
+    return () => { cancelled = true; };
   }, [subjectId]);
 
   // フィルター変更時にカウントをリセット

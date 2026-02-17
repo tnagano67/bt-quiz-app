@@ -36,51 +36,36 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user || !user.email) redirect("/login");
 
-  // 教員チェック
-  const { data: teacher } = await supabase
-    .from("teachers")
-    .select("id")
-    .eq("email", user.email)
-    .single();
+  // 教員チェックと科目一覧を並列取得
+  const [{ data: teacher }, { data: subjectData }] = await Promise.all([
+    supabase
+      .from("teachers")
+      .select("id")
+      .eq("email", user.email)
+      .single(),
+    supabase
+      .from("subjects")
+      .select("*")
+      .order("display_order", { ascending: true }),
+  ]);
   if (!teacher) redirect("/");
 
-  // 科目一覧とグレード定義を取得（subject 指定時は並列化）
   let subjects: Subject[];
   let selectedSubjectId: string;
   let allGrades: GradeDefinition[];
 
-  const subjectsPromise = supabase
-    .from("subjects")
-    .select("*")
-    .order("display_order", { ascending: true });
+  subjects = (subjectData ?? []) as Subject[];
+  selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
 
-  if (params.subject) {
-    const [{ data: subjectData }, { data: gradeData }] = await Promise.all([
-      subjectsPromise,
-      supabase
-        .from("grade_definitions")
-        .select("*")
-        .eq("subject_id", params.subject)
-        .order("display_order", { ascending: true }),
-    ]);
-    subjects = (subjectData ?? []) as Subject[];
-    selectedSubjectId = params.subject;
+  if (selectedSubjectId) {
+    const { data: gradeData } = await supabase
+      .from("grade_definitions")
+      .select("*")
+      .eq("subject_id", selectedSubjectId)
+      .order("display_order", { ascending: true });
     allGrades = (gradeData ?? []) as GradeDefinition[];
   } else {
-    const { data: subjectData } = await subjectsPromise;
-    subjects = (subjectData ?? []) as Subject[];
-    selectedSubjectId = subjects[0]?.id ?? "";
-
-    if (selectedSubjectId) {
-      const { data: gradeData } = await supabase
-        .from("grade_definitions")
-        .select("*")
-        .eq("subject_id", selectedSubjectId)
-        .order("display_order", { ascending: true });
-      allGrades = (gradeData ?? []) as GradeDefinition[];
-    } else {
-      allGrades = [];
-    }
+    allGrades = [];
   }
   const gradeNames = allGrades.map((g) => g.grade_name);
 

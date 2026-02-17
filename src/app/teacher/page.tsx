@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
@@ -117,27 +118,108 @@ export default async function TeacherHomePage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user || !user.email) redirect("/login");
 
-  const { data: teacher } = await supabase
-    .from("teachers")
-    .select("*")
-    .eq("email", user.email)
-    .single();
+  // 教員チェックと科目一覧を並列取得
+  const [{ data: teacher }, { data: subjectData }] = await Promise.all([
+    supabase
+      .from("teachers")
+      .select("*")
+      .eq("email", user.email)
+      .single(),
+    supabase
+      .from("subjects")
+      .select("*")
+      .order("display_order", { ascending: true }),
+  ]);
 
   if (!teacher) redirect("/");
 
   const typedTeacher = teacher as Teacher;
+  const subjects = (subjectData ?? []) as Subject[];
+  const selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
 
   const yearFilter = params.year ? Number(params.year) : undefined;
   const classFilter = params.class ? Number(params.class) : undefined;
   const hasFilter = !!(yearFilter || classFilter);
 
-  // 科目一覧を取得
-  const { data: subjectData } = await supabase
-    .from("subjects")
-    .select("*")
-    .order("display_order", { ascending: true });
-  const subjects = (subjectData ?? []) as Subject[];
-  const selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
+  // フィルターラベル
+  const filterLabel = hasFilter
+    ? [
+        yearFilter ? `${yearFilter}年` : null,
+        classFilter ? `${classFilter}組` : null,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : null;
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* ウェルカムメッセージ — 即座に表示 */}
+      <div className="rounded-xl border-2 border-teal-200 bg-teal-50/50 p-6">
+        <h2 className="text-lg font-bold text-teal-800">
+          {typedTeacher.name} 先生、こんにちは
+        </h2>
+        <p className="mt-1 text-sm text-teal-600">
+          BT管理システムの教員ダッシュボードへようこそ。
+        </p>
+      </div>
+
+      {/* フィルター — 即座に表示 */}
+      <DashboardFilter subjects={subjects} selectedSubjectId={selectedSubjectId} />
+
+      {filterLabel && (
+        <p className="text-xs text-gray-500">
+          フィルター: {filterLabel}
+        </p>
+      )}
+
+      {/* ダッシュボードコンテンツ — Suspense でストリーミング */}
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardContent
+          yearFilter={yearFilter}
+          classFilter={classFilter}
+          hasFilter={hasFilter}
+          selectedSubjectId={selectedSubjectId}
+        />
+      </Suspense>
+
+      {/* ナビカード — 即座に表示 */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Link
+          href="/teacher/students"
+          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-colors hover:border-teal-300 hover:bg-teal-50/30"
+        >
+          <h3 className="text-base font-bold text-gray-800">生徒管理</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            生徒一覧の閲覧・検索、成績の確認ができます。
+          </p>
+        </Link>
+        <Link
+          href="/teacher/grades"
+          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-colors hover:border-teal-300 hover:bg-teal-50/30"
+        >
+          <h3 className="text-base font-bold text-gray-800">グレード管理</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            グレード定義の追加・編集・削除ができます。
+          </p>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/** データ取得が重いダッシュボードコンテンツ（Suspense でストリーミング） */
+async function DashboardContent({
+  yearFilter,
+  classFilter,
+  hasFilter,
+  selectedSubjectId,
+}: {
+  yearFilter?: number;
+  classFilter?: number;
+  hasFilter: boolean;
+  selectedSubjectId: string;
+}) {
+  const supabase = await createClient();
 
   const sinceDate = getRecentDates(30).at(-1)!;
 
@@ -181,21 +263,27 @@ export default async function TeacherHomePage({ searchParams }: Props) {
   const grades = gradesResult.data ?? [];
 
   // 選択科目の student_subject_progress を取得
-  // .in() に大量の UUID を渡すと URL 長制限を超えるためページネーションで取得
   const targetStudentIds = students.map((s) => s.id);
   const progressList: StudentSubjectProgress[] = [];
   if (selectedSubjectId) {
     if (hasFilter && targetStudentIds.length > 0) {
-      // フィルターあり: student_id で絞り込み（バッチ分割）
+      // フィルターあり: student_id で絞り込み（バッチ分割・並列実行）
       const BATCH_SIZE = 200;
+      const batchPromises: PromiseLike<StudentSubjectProgress[]>[] = [];
       for (let i = 0; i < targetStudentIds.length; i += BATCH_SIZE) {
         const batch = targetStudentIds.slice(i, i + BATCH_SIZE);
-        const { data } = await supabase
-          .from("student_subject_progress")
-          .select("*")
-          .eq("subject_id", selectedSubjectId)
-          .in("student_id", batch);
-        if (data) progressList.push(...(data as StudentSubjectProgress[]));
+        batchPromises.push(
+          supabase
+            .from("student_subject_progress")
+            .select("*")
+            .eq("subject_id", selectedSubjectId)
+            .in("student_id", batch)
+            .then(({ data }) => (data ?? []) as StudentSubjectProgress[])
+        );
+      }
+      const batchResults = await Promise.all(batchPromises);
+      for (const batch of batchResults) {
+        progressList.push(...batch);
       }
     } else {
       // フィルターなし: subject_id のみで全件取得（.in() 不要）
@@ -289,37 +377,8 @@ export default async function TeacherHomePage({ searchParams }: Props) {
     })
     .slice(0, 5);
 
-  // フィルターラベル
-  const filterLabel = hasFilter
-    ? [
-        yearFilter ? `${yearFilter}年` : null,
-        classFilter ? `${classFilter}組` : null,
-      ]
-        .filter(Boolean)
-        .join(" ")
-    : null;
-
   return (
-    <div className="flex flex-col gap-6">
-      {/* ウェルカムメッセージ */}
-      <div className="rounded-xl border-2 border-teal-200 bg-teal-50/50 p-6">
-        <h2 className="text-lg font-bold text-teal-800">
-          {typedTeacher.name} 先生、こんにちは
-        </h2>
-        <p className="mt-1 text-sm text-teal-600">
-          BT管理システムの教員ダッシュボードへようこそ。
-        </p>
-      </div>
-
-      {/* フィルター */}
-      <DashboardFilter subjects={subjects} selectedSubjectId={selectedSubjectId} />
-
-      {filterLabel && (
-        <p className="text-xs text-gray-500">
-          フィルター: {filterLabel}（{totalStudents}名）
-        </p>
-      )}
-
+    <>
       {/* 概要統計カード */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="総生徒数" value={`${totalStudents}名`} />
@@ -422,29 +481,44 @@ export default async function TeacherHomePage({ searchParams }: Props) {
           )}
         </div>
       </div>
+    </>
+  );
+}
 
-      {/* ナビカード */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Link
-          href="/teacher/students"
-          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-colors hover:border-teal-300 hover:bg-teal-50/30"
-        >
-          <h3 className="text-base font-bold text-gray-800">生徒管理</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            生徒一覧の閲覧・検索、成績の確認ができます。
-          </p>
-        </Link>
-        <Link
-          href="/teacher/grades"
-          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-colors hover:border-teal-300 hover:bg-teal-50/30"
-        >
-          <h3 className="text-base font-bold text-gray-800">グレード管理</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            グレード定義の追加・編集・削除ができます。
-          </p>
-        </Link>
+function DashboardSkeleton() {
+  return (
+    <>
+      {/* 統計カードスケルトン */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="animate-pulse rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="h-3 w-16 rounded bg-gray-200" />
+            <div className="mt-2 h-6 w-12 rounded bg-gray-200" />
+          </div>
+        ))}
       </div>
-    </div>
+      {/* チャートスケルトン */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="flex h-64 animate-pulse items-center justify-center rounded-xl border border-gray-200 bg-white">
+            <p className="text-sm text-gray-400">読み込み中...</p>
+          </div>
+        ))}
+      </div>
+      {/* 生徒リストスケルトン */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="animate-pulse rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 h-4 w-32 rounded bg-gray-200" />
+            <div className="space-y-2">
+              {[...Array(3)].map((_, j) => (
+                <div key={j} className="h-8 rounded-lg bg-gray-100" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 

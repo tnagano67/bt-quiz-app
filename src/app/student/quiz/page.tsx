@@ -84,13 +84,20 @@ function QuizContent() {
       }
       setStudentId(studentData.id);
 
-      // 科目別の進捗を取得
-      const { data: progressData } = await supabase
-        .from("student_subject_progress")
-        .select("*")
-        .eq("student_id", studentData.id)
-        .eq("subject_id", subjectId)
-        .single();
+      // 科目別の進捗とグレード定義を並列取得
+      const [{ data: progressData }, { data: grades }] = await Promise.all([
+        supabase
+          .from("student_subject_progress")
+          .select("*")
+          .eq("student_id", studentData.id)
+          .eq("subject_id", subjectId)
+          .single(),
+        supabase
+          .from("grade_definitions")
+          .select("*")
+          .eq("subject_id", subjectId)
+          .order("display_order", { ascending: true }),
+      ]);
 
       if (!progressData) {
         setErrorMessage("この科目の進捗情報が見つかりません");
@@ -100,13 +107,6 @@ function QuizContent() {
 
       const currentGrade = progressData.current_grade as string;
       setCurrentGradeName(currentGrade);
-
-      // グレード定義（選択科目のもの）
-      const { data: grades } = await supabase
-        .from("grade_definitions")
-        .select("*")
-        .eq("subject_id", subjectId)
-        .order("display_order", { ascending: true });
 
       const allGrades = (grades ?? []) as GradeDefinition[];
       const currentGradeDef = allGrades.find(

@@ -11,23 +11,23 @@ export default async function Home() {
     redirect("/login");
   }
 
-  // 教員チェック
-  const { data: teacher } = await supabase
-    .from("teachers")
-    .select("id")
-    .eq("email", user.email)
-    .single();
+  // 教員・生徒チェックを並列実行
+  const [{ data: teacher }, { data: student }] = await Promise.all([
+    supabase
+      .from("teachers")
+      .select("id")
+      .eq("email", user.email)
+      .single(),
+    supabase
+      .from("students")
+      .select("id")
+      .eq("email", user.email)
+      .single(),
+  ]);
 
   if (teacher) {
     redirect("/teacher");
   }
-
-  // 生徒チェック
-  const { data: student } = await supabase
-    .from("students")
-    .select("id")
-    .eq("email", user.email)
-    .single();
 
   if (student) {
     redirect("/student");
