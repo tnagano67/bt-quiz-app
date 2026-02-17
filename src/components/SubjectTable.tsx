@@ -1,7 +1,5 @@
-"use client";
-
 import Link from "next/link";
-import { deleteSubject } from "@/app/teacher/subjects/actions";
+import SubjectDeleteButton from "./SubjectDeleteButton";
 import type { Subject } from "@/lib/types/database";
 
 type Props = {
@@ -9,14 +7,6 @@ type Props = {
 };
 
 export default function SubjectTable({ subjects }: Props) {
-  const handleDelete = async (subject: Subject) => {
-    if (!confirm(`科目「${subject.name}」を削除しますか？`)) return;
-    const result = await deleteSubject(subject.id);
-    if (!result.success) {
-      alert(result.message ?? "削除に失敗しました");
-    }
-  };
-
   if (subjects.length === 0) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
@@ -52,12 +42,7 @@ export default function SubjectTable({ subjects }: Props) {
                   >
                     編集
                   </Link>
-                  <button
-                    onClick={() => handleDelete(s)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    削除
-                  </button>
+                  <SubjectDeleteButton subjectId={s.id} subjectName={s.name} />
                 </div>
               </td>
             </tr>

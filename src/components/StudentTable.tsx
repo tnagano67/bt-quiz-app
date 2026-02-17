@@ -1,8 +1,6 @@
-"use client";
-
 import Link from "next/link";
-import { formatDateShort } from "@/lib/date-utils";
-import { deleteStudent } from "@/app/teacher/students/actions";
+import { formatDateShort } from "@/lib/format-date";
+import StudentDeleteButton from "./StudentDeleteButton";
 import type { Student, StudentSubjectProgress } from "@/lib/types/database";
 
 type Props = {
@@ -18,14 +16,6 @@ export default function StudentTable({
   scoreMap,
   progressMap,
 }: Props) {
-  const handleDelete = async (student: Student) => {
-    if (!confirm(`${student.name} を削除しますか？関連する受験記録もすべて削除されます。`)) return;
-    const result = await deleteStudent(student.id);
-    if (!result.success) {
-      alert(result.message ?? "削除に失敗しました");
-    }
-  };
-
   if (students.length === 0) {
     return (
       <div className="rounded-lg bg-gray-50 p-8 text-center text-sm text-gray-500">
@@ -136,12 +126,7 @@ export default function StudentTable({
                     >
                       編集
                     </Link>
-                    <button
-                      onClick={() => handleDelete(student)}
-                      className="text-xs text-red-500 hover:text-red-700"
-                    >
-                      削除
-                    </button>
+                    <StudentDeleteButton studentId={student.id} studentName={student.name} />
                   </div>
                 </td>
               </tr>

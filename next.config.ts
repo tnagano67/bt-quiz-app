@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    optimizePackageImports: ["date-fns", "date-fns-tz"],
+  },
 };
 
 export default nextConfig;

@@ -11,7 +11,7 @@ import {
   Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { formatDateShort } from "@/lib/date-utils";
+import { formatDateShort } from "@/lib/format-date";
 
 ChartJS.register(
   CategoryScale,

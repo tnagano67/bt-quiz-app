@@ -10,7 +10,7 @@ import {
   Legend,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
-import { formatDateShort } from "@/lib/date-utils";
+import { formatDateShort } from "@/lib/format-date";
 
 ChartJS.register(
   CategoryScale,

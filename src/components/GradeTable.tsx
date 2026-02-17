@@ -1,7 +1,5 @@
-"use client";
-
 import Link from "next/link";
-import { deleteGrade } from "@/app/teacher/grades/actions";
+import GradeDeleteButton from "./GradeDeleteButton";
 import type { GradeDefinition } from "@/lib/types/database";
 
 type Props = {
@@ -9,14 +7,6 @@ type Props = {
 };
 
 export default function GradeTable({ grades }: Props) {
-  const handleDelete = async (grade: GradeDefinition) => {
-    if (!confirm(`グレード「${grade.grade_name}」を削除しますか？`)) return;
-    const result = await deleteGrade(grade.id);
-    if (!result.success) {
-      alert(result.message ?? "削除に失敗しました");
-    }
-  };
-
   if (grades.length === 0) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
@@ -68,12 +58,7 @@ export default function GradeTable({ grades }: Props) {
                   >
                     編集
                   </Link>
-                  <button
-                    onClick={() => handleDelete(g)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    削除
-                  </button>
+                  <GradeDeleteButton gradeId={g.id} gradeName={g.grade_name} />
                 </div>
               </td>
             </tr>

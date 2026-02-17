@@ -141,28 +141,44 @@ export default async function TeacherHomePage({ searchParams }: Props) {
 
   const sinceDate = getRecentDates(30).at(-1)!;
 
-  // データ取得（並列）
-  const [students, gradesResult] = await Promise.all([
-    fetchAllStudents(supabase, { year: yearFilter, classNum: classFilter }),
-    supabase
-      .from("grade_definitions")
-      .select("*")
-      .eq("subject_id", selectedSubjectId)
-      .order("display_order", { ascending: true }),
-  ]);
+  // データ取得（並列）— フィルタなし時は recentRecords も並列実行
+  const studentsPromise = fetchAllStudents(supabase, { year: yearFilter, classNum: classFilter });
+  const gradesPromise = supabase
+    .from("grade_definitions")
+    .select("*")
+    .eq("subject_id", selectedSubjectId)
+    .order("display_order", { ascending: true });
+
+  let students: Student[];
+  let gradesResult: Awaited<typeof gradesPromise>;
+  let recentRecords: RecentRecord[];
+
+  if (hasFilter) {
+    // フィルタあり: students の結果を待ってから studentIds を渡す
+    [students, gradesResult] = await Promise.all([studentsPromise, gradesPromise]);
+    const studentIds = students.map((s) => s.id);
+    recentRecords = await fetchAllRecentRecords(
+      supabase,
+      sinceDate,
+      studentIds,
+      selectedSubjectId || undefined
+    );
+  } else {
+    // フィルタなし: 3クエリ並列実行
+    [students, gradesResult, recentRecords] = await Promise.all([
+      studentsPromise,
+      gradesPromise,
+      fetchAllRecentRecords(
+        supabase,
+        sinceDate,
+        undefined,
+        selectedSubjectId || undefined
+      ),
+    ]);
+  }
 
   if (gradesResult.error) throw new Error("グレード定義の取得に失敗しました");
   const grades = gradesResult.data ?? [];
-
-  // フィルターがある場合は student_ids で quiz_records を絞り込む
-  const studentIds = hasFilter ? students.map((s) => s.id) : undefined;
-
-  const recentRecords = await fetchAllRecentRecords(
-    supabase,
-    sinceDate,
-    studentIds,
-    selectedSubjectId || undefined
-  );
 
   // 選択科目の student_subject_progress を取得
   // .in() に大量の UUID を渡すと URL 長制限を超えるためページネーションで取得

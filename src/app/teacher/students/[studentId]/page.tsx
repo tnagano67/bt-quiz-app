@@ -76,19 +76,7 @@ export default async function StudentDetailPage({
   const subjects = (subjectData ?? []) as Subject[];
   const selectedSubjectId = sp.subject ?? subjects[0]?.id ?? "";
 
-  // 選択科目の進捗を取得
-  let progress: StudentSubjectProgress | null = null;
-  if (selectedSubjectId) {
-    const { data: progressData } = await supabase
-      .from("student_subject_progress")
-      .select("*")
-      .eq("student_id", student.id)
-      .eq("subject_id", selectedSubjectId)
-      .single();
-    progress = (progressData as StudentSubjectProgress) ?? null;
-  }
-
-  // 直近30日間の成績を取得
+  // 直近30日間の成績と進捗を並列取得
   const recentDates = getRecentDates(30);
   const oldestDate = recentDates[recentDates.length - 1];
 
@@ -103,8 +91,20 @@ export default async function StudentDetailPage({
     recordQuery = recordQuery.eq("subject_id", selectedSubjectId);
   }
 
-  const { data: records } = await recordQuery;
-  const allRecords = (records ?? []) as QuizRecord[];
+  const [progressResult, recordResult] = await Promise.all([
+    selectedSubjectId
+      ? supabase
+          .from("student_subject_progress")
+          .select("*")
+          .eq("student_id", student.id)
+          .eq("subject_id", selectedSubjectId)
+          .single()
+      : Promise.resolve({ data: null }),
+    recordQuery,
+  ]);
+
+  const progress = (progressResult.data as StudentSubjectProgress) ?? null;
+  const allRecords = (recordResult.data ?? []) as QuizRecord[];
 
   // 統計計算
   const totalAttempts = allRecords.length;

@@ -44,24 +44,44 @@ export default async function TeacherStudentsPage({ searchParams }: Props) {
     .single();
   if (!teacher) redirect("/");
 
-  // 科目一覧を取得
-  const { data: subjectData } = await supabase
+  // 科目一覧とグレード定義を取得（subject 指定時は並列化）
+  let subjects: Subject[];
+  let selectedSubjectId: string;
+  let allGrades: GradeDefinition[];
+
+  const subjectsPromise = supabase
     .from("subjects")
     .select("*")
     .order("display_order", { ascending: true });
-  const subjects = (subjectData ?? []) as Subject[];
-  const selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
 
-  // グレード定義を取得（フィルター用、選択科目のもの）
-  let gradeDefQuery = supabase
-    .from("grade_definitions")
-    .select("*")
-    .order("display_order", { ascending: true });
-  if (selectedSubjectId) {
-    gradeDefQuery = gradeDefQuery.eq("subject_id", selectedSubjectId);
+  if (params.subject) {
+    const [{ data: subjectData }, { data: gradeData }] = await Promise.all([
+      subjectsPromise,
+      supabase
+        .from("grade_definitions")
+        .select("*")
+        .eq("subject_id", params.subject)
+        .order("display_order", { ascending: true }),
+    ]);
+    subjects = (subjectData ?? []) as Subject[];
+    selectedSubjectId = params.subject;
+    allGrades = (gradeData ?? []) as GradeDefinition[];
+  } else {
+    const { data: subjectData } = await subjectsPromise;
+    subjects = (subjectData ?? []) as Subject[];
+    selectedSubjectId = subjects[0]?.id ?? "";
+
+    if (selectedSubjectId) {
+      const { data: gradeData } = await supabase
+        .from("grade_definitions")
+        .select("*")
+        .eq("subject_id", selectedSubjectId)
+        .order("display_order", { ascending: true });
+      allGrades = (gradeData ?? []) as GradeDefinition[];
+    } else {
+      allGrades = [];
+    }
   }
-  const { data: gradeData } = await gradeDefQuery;
-  const allGrades = (gradeData ?? []) as GradeDefinition[];
   const gradeNames = allGrades.map((g) => g.grade_name);
 
   // サーバーサイドフィルタリング付きクエリを構築

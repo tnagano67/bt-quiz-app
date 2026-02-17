@@ -1,7 +1,5 @@
-"use client";
-
 import Link from "next/link";
-import { deleteQuestion } from "@/app/teacher/questions/actions";
+import QuestionDeleteButton from "./QuestionDeleteButton";
 import type { Question } from "@/lib/types/database";
 
 type Props = {
@@ -9,14 +7,6 @@ type Props = {
 };
 
 export default function QuestionTable({ questions }: Props) {
-  const handleDelete = async (q: Question) => {
-    if (!confirm(`問題ID ${q.question_id} を削除しますか？`)) return;
-    const result = await deleteQuestion(q.question_id, q.subject_id);
-    if (!result.success) {
-      alert(result.message ?? "削除に失敗しました");
-    }
-  };
-
   if (questions.length === 0) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
@@ -72,12 +62,7 @@ export default function QuestionTable({ questions }: Props) {
                   >
                     編集
                   </Link>
-                  <button
-                    onClick={() => handleDelete(q)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    削除
-                  </button>
+                  <QuestionDeleteButton questionId={q.question_id} subjectId={q.subject_id} />
                 </div>
               </td>
             </tr>

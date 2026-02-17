@@ -26,29 +26,47 @@ export default async function TeacherGradesPage({ searchParams }: Props) {
     .single();
   if (!teacher) redirect("/");
 
-  // 科目一覧を取得
-  const { data: subjectData } = await supabase
+  // 科目一覧とグレード定義を取得（subject 指定時は並列化）
+  let subjects: Subject[];
+  let selectedSubjectId: string;
+  let grades: GradeDefinition[];
+
+  const subjectsPromise = supabase
     .from("subjects")
     .select("*")
     .order("display_order", { ascending: true });
-  const subjects = (subjectData ?? []) as Subject[];
 
-  // 選択された科目（デフォルトは最初の科目）
-  const selectedSubjectId = params.subject ?? subjects[0]?.id ?? "";
-  const selectedSubject = subjects.find((s) => s.id === selectedSubjectId);
+  if (params.subject) {
+    // subject 指定あり: subjects と grades を並列取得
+    const [{ data: subjectData }, { data: gradeData }] = await Promise.all([
+      subjectsPromise,
+      supabase
+        .from("grade_definitions")
+        .select("*")
+        .eq("subject_id", params.subject)
+        .order("display_order", { ascending: true }),
+    ]);
+    subjects = (subjectData ?? []) as Subject[];
+    selectedSubjectId = params.subject;
+    grades = (gradeData ?? []) as GradeDefinition[];
+  } else {
+    // subject 指定なし: subjects を取得後、デフォルト科目で grades を取得
+    const { data: subjectData } = await subjectsPromise;
+    subjects = (subjectData ?? []) as Subject[];
+    selectedSubjectId = subjects[0]?.id ?? "";
 
-  // グレード定義を取得（科目フィルター付き）
-  let gradeQuery = supabase
-    .from("grade_definitions")
-    .select("*")
-    .order("display_order", { ascending: true });
-
-  if (selectedSubjectId) {
-    gradeQuery = gradeQuery.eq("subject_id", selectedSubjectId);
+    if (selectedSubjectId) {
+      const { data: gradeData } = await supabase
+        .from("grade_definitions")
+        .select("*")
+        .eq("subject_id", selectedSubjectId)
+        .order("display_order", { ascending: true });
+      grades = (gradeData ?? []) as GradeDefinition[];
+    } else {
+      grades = [];
+    }
   }
-
-  const { data: gradeData } = await gradeQuery;
-  const grades = (gradeData ?? []) as GradeDefinition[];
+  const selectedSubject = subjects.find((s) => s.id === selectedSubjectId);
 
   return (
     <div className="flex flex-col gap-4">

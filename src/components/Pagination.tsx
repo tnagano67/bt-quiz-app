@@ -1,6 +1,4 @@
-"use client";
-
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Props = {
   currentPage: number;
@@ -15,11 +13,9 @@ export default function Pagination({
   basePath,
   searchParams,
 }: Props) {
-  const router = useRouter();
-
   if (totalPages <= 1) return null;
 
-  const navigate = (page: number) => {
+  const buildHref = (page: number) => {
     const params = new URLSearchParams(searchParams);
     if (page <= 1) {
       params.delete("page");
@@ -27,7 +23,7 @@ export default function Pagination({
       params.set("page", String(page));
     }
     const qs = params.toString();
-    router.push(qs ? `${basePath}?${qs}` : basePath);
+    return qs ? `${basePath}?${qs}` : basePath;
   };
 
   // 表示するページ番号を計算（現在ページの前後2ページ）
@@ -53,21 +49,32 @@ export default function Pagination({
   const btnBase =
     "rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors";
   const btnNav =
-    "border-gray-300 text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40";
+    "border-gray-300 text-gray-700 hover:bg-gray-100";
+  const btnDisabled =
+    "border-gray-300 opacity-40 cursor-not-allowed text-gray-700";
   const btnActive = "border-teal-600 bg-teal-600 text-white";
   const btnInactive =
     "border-gray-300 text-gray-700 hover:bg-gray-100";
 
   return (
     <nav aria-label="ページネーション" className="flex items-center justify-center gap-1.5">
-      <button
-        onClick={() => navigate(currentPage - 1)}
-        disabled={currentPage <= 1}
-        aria-label="前のページへ"
-        className={`${btnBase} ${btnNav}`}
-      >
-        前へ
-      </button>
+      {currentPage <= 1 ? (
+        <span
+          aria-disabled="true"
+          aria-label="前のページへ"
+          className={`${btnBase} ${btnDisabled}`}
+        >
+          前へ
+        </span>
+      ) : (
+        <Link
+          href={buildHref(currentPage - 1)}
+          aria-label="前のページへ"
+          className={`${btnBase} ${btnNav}`}
+        >
+          前へ
+        </Link>
+      )}
       {pageNumbers.map((page, i) =>
         page === "ellipsis" ? (
           <span
@@ -77,26 +84,43 @@ export default function Pagination({
           >
             …
           </span>
-        ) : (
-          <button
+        ) : page === currentPage ? (
+          <span
             key={page}
-            onClick={() => navigate(page)}
-            aria-current={page === currentPage ? "page" : undefined}
+            aria-current="page"
             aria-label={`ページ ${page}`}
-            className={`${btnBase} ${page === currentPage ? btnActive : btnInactive}`}
+            className={`${btnBase} ${btnActive}`}
           >
             {page}
-          </button>
+          </span>
+        ) : (
+          <Link
+            key={page}
+            href={buildHref(page)}
+            aria-label={`ページ ${page}`}
+            className={`${btnBase} ${btnInactive}`}
+          >
+            {page}
+          </Link>
         )
       )}
-      <button
-        onClick={() => navigate(currentPage + 1)}
-        disabled={currentPage >= totalPages}
-        aria-label="次のページへ"
-        className={`${btnBase} ${btnNav}`}
-      >
-        次へ
-      </button>
+      {currentPage >= totalPages ? (
+        <span
+          aria-disabled="true"
+          aria-label="次のページへ"
+          className={`${btnBase} ${btnDisabled}`}
+        >
+          次へ
+        </span>
+      ) : (
+        <Link
+          href={buildHref(currentPage + 1)}
+          aria-label="次のページへ"
+          className={`${btnBase} ${btnNav}`}
+        >
+          次へ
+        </Link>
+      )}
     </nav>
   );
 }

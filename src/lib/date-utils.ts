@@ -17,11 +17,7 @@ export function getRecentDates(days: number): string[] {
   );
 }
 
-/** 日付文字列を表示用にフォーマット (MM/DD) */
-export function formatDateShort(dateStr: string): string {
-  const [, month, day] = dateStr.split("-");
-  return `${Number(month)}/${Number(day)}`;
-}
+export { formatDateShort } from "./format-date";
 
 /** UTC タイムスタンプ文字列を JST の日付文字列 (YYYY-MM-DD) に変換 */
 export function toJSTDateString(timestamp: string): string {

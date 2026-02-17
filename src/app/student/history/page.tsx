@@ -26,31 +26,23 @@ export default async function HistoryPage() {
     );
   }
 
-  // 科目一覧を取得（名前表示用）
-  const { data: subjectData } = await supabase
-    .from("subjects")
-    .select("*")
-    .order("display_order", { ascending: true });
-  const subjects = (subjectData ?? []) as Subject[];
-  const subjectMap = new Map(subjects.map((s) => [s.id, s.name]));
-
-  // 直近10件の成績記録
-  const { data: records, error: recordsError } = await supabase
-    .from("quiz_records")
-    .select("*")
-    .eq("student_id", student.id)
-    .order("taken_at", { ascending: false })
-    .limit(10);
-
-  if (recordsError) throw new Error("受験記録の取得に失敗しました");
-
-  const allRecords = (records ?? []) as QuizRecord[];
-
-  // 統計（並列実行）
+  // 科目一覧・直近10件の成績記録・統計を並列取得
   const [
+    { data: subjectData },
+    { data: records, error: recordsError },
     { count: totalCount, error: totalError },
     { count: passCount, error: passError },
   ] = await Promise.all([
+    supabase
+      .from("subjects")
+      .select("*")
+      .order("display_order", { ascending: true }),
+    supabase
+      .from("quiz_records")
+      .select("*")
+      .eq("student_id", student.id)
+      .order("taken_at", { ascending: false })
+      .limit(10),
     supabase
       .from("quiz_records")
       .select("*", { count: "exact", head: true })
@@ -62,7 +54,12 @@ export default async function HistoryPage() {
       .eq("passed", true),
   ]);
 
+  if (recordsError) throw new Error("受験記録の取得に失敗しました");
   if (totalError || passError) throw new Error("統計データの取得に失敗しました");
+
+  const subjects = (subjectData ?? []) as Subject[];
+  const subjectMap = new Map(subjects.map((s) => [s.id, s.name]));
+  const allRecords = (records ?? []) as QuizRecord[];
 
   const totalAttempts = totalCount ?? 0;
   const passRate =
