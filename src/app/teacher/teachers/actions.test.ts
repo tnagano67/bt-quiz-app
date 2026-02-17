@@ -22,9 +22,8 @@ const mockSetup = createMockSupabase({
 vi.mock("@/lib/supabase/server", () => mockSetup.mockModule);
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const { createTeacher, importTeachers, deleteTeacher } = await import(
-  "./actions"
-);
+const { createTeacher, updateTeacher, importTeachers, deleteTeacher } =
+  await import("./actions");
 
 function resetMocks() {
   vi.clearAllMocks();
@@ -179,6 +178,150 @@ describe("importTeachers", () => {
     expect(result.inserted).toBe(0);
     expect(result.skipped).toBe(0);
     expect(result.errors.length).toBe(2);
+  });
+});
+
+describe("updateTeacher", () => {
+  /**
+   * updateTeacher は teachers テーブルの select を2回呼ぶ:
+   * 1. verifyTeacher: 認証ユーザーのメールで教員チェック
+   * 2. メール重複チェック（.neq("id", id) 付き）
+   * カスタム from で呼び出し回数に応じてレスポンスを変える。
+   */
+
+  /** チェーン可能なビルダーを生成するヘルパー */
+  function makeBuilder(response: { data: unknown; error: unknown }) {
+    const chainMethods = [
+      "eq", "neq", "in", "select", "order", "limit", "single", "range", "gte", "lte", "is",
+    ];
+    const builder: Record<string, unknown> = {};
+    for (const method of chainMethods) {
+      builder[method] = vi.fn().mockReturnValue(builder);
+    }
+    builder.then = (resolve: (value: unknown) => void) => resolve(response);
+    return builder;
+  }
+
+  const originalFromImpl = mockSetup.supabase.from.getMockImplementation();
+
+  beforeEach(() => {
+    resetMocks();
+    mockSetup.supabase.from.mockImplementation(originalFromImpl!);
+  });
+
+  it("未認証 → エラー", async () => {
+    mockSetup.supabase.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    });
+    const result = await updateTeacher("t1", {
+      email: "new@example.com",
+      name: "新名前",
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("認証");
+  });
+
+  it("非教員 → エラー", async () => {
+    mockSetup.setTableResponse("teachers", "select", {
+      data: null,
+      error: null,
+    });
+    const result = await updateTeacher("t1", {
+      email: "new@example.com",
+      name: "新名前",
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("教員権限");
+  });
+
+  it("メール重複 → エラー", async () => {
+    let teacherSelectCount = 0;
+    mockSetup.supabase.from.mockImplementation((table: string) => {
+      if (table === "teachers") {
+        return {
+          select: vi.fn(() => {
+            teacherSelectCount++;
+            // 1回目: verifyTeacher → 教員として認証
+            // 2回目: メール重複チェック → 既存教員あり
+            return makeBuilder(
+              teacherSelectCount === 1
+                ? { data: { id: "t1" }, error: null }
+                : { data: { id: "t2" }, error: null }
+            );
+          }),
+          update: vi.fn(() => makeBuilder({ data: null, error: null })),
+        };
+      }
+      return {
+        select: vi.fn(() => makeBuilder({ data: null, error: null })),
+      };
+    });
+    const result = await updateTeacher("t1", {
+      email: "existing@example.com",
+      name: "名前",
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("すでに登録");
+  });
+
+  it("正常更新 → success", async () => {
+    let teacherSelectCount = 0;
+    mockSetup.supabase.from.mockImplementation((table: string) => {
+      if (table === "teachers") {
+        return {
+          select: vi.fn(() => {
+            teacherSelectCount++;
+            // 1回目: verifyTeacher → OK
+            // 2回目: メール重複チェック → 重複なし
+            return makeBuilder(
+              teacherSelectCount === 1
+                ? { data: { id: "t1" }, error: null }
+                : { data: null, error: null }
+            );
+          }),
+          update: vi.fn(() => makeBuilder({ data: null, error: null })),
+        };
+      }
+      return {
+        select: vi.fn(() => makeBuilder({ data: null, error: null })),
+      };
+    });
+    const result = await updateTeacher("t1", {
+      email: "updated@example.com",
+      name: "更新名",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("DB エラー → 失敗メッセージ", async () => {
+    let teacherSelectCount = 0;
+    mockSetup.supabase.from.mockImplementation((table: string) => {
+      if (table === "teachers") {
+        return {
+          select: vi.fn(() => {
+            teacherSelectCount++;
+            return makeBuilder(
+              teacherSelectCount === 1
+                ? { data: { id: "t1" }, error: null }
+                : { data: null, error: null }
+            );
+          }),
+          update: vi.fn(() =>
+            makeBuilder({ data: null, error: { message: "db error" } })
+          ),
+        };
+      }
+      return {
+        select: vi.fn(() => makeBuilder({ data: null, error: null })),
+      };
+    });
+    const result = await updateTeacher("t1", {
+      email: "updated@example.com",
+      name: "更新名",
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("失敗");
   });
 });
 

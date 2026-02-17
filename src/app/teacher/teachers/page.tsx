@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import TeacherDeleteButton from "@/components/TeacherDeleteButton";
 import TeacherCsvImport from "@/components/TeacherCsvImport";
@@ -65,9 +66,17 @@ export default async function TeacherTeachersPage() {
                   {t.created_at.slice(0, 10)}
                 </td>
                 <td className="px-3 py-2 text-right">
-                  {t.email !== user.email && (
-                    <TeacherDeleteButton teacherId={t.id} teacherName={t.name} />
-                  )}
+                  <div className="flex items-center justify-end gap-2">
+                    <Link
+                      href={`/teacher/teachers/${t.id}/edit`}
+                      className="text-xs text-teal-600 hover:text-teal-800"
+                    >
+                      編集
+                    </Link>
+                    {t.email !== user.email && (
+                      <TeacherDeleteButton teacherId={t.id} teacherName={t.name} />
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

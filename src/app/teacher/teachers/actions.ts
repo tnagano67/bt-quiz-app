@@ -145,6 +145,43 @@ export async function importTeachers(
   };
 }
 
+export async function updateTeacher(
+  id: string,
+  input: { email: string; name: string }
+): Promise<Result> {
+  const { error } = await verifyTeacher();
+  if (error) return error;
+
+  const supabase = await createClient();
+
+  // email 重複チェック（自身を除外）
+  const { data: existing } = await supabase
+    .from("teachers")
+    .select("id")
+    .eq("email", input.email)
+    .neq("id", id)
+    .single();
+
+  if (existing) {
+    return {
+      success: false,
+      message: `メールアドレス ${input.email} はすでに登録されています`,
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("teachers")
+    .update({ email: input.email, name: input.name })
+    .eq("id", id);
+
+  if (updateError) {
+    return { success: false, message: "教員の更新に失敗しました" };
+  }
+
+  revalidatePath("/teacher/teachers");
+  return { success: true };
+}
+
 export async function deleteTeacher(id: string): Promise<Result> {
   const { error, email } = await verifyTeacher();
   if (error) return error;

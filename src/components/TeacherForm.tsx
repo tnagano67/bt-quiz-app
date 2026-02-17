@@ -3,14 +3,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createTeacher } from "@/app/teacher/teachers/actions";
+import { createTeacher, updateTeacher } from "@/app/teacher/teachers/actions";
+import type { Teacher } from "@/lib/types/database";
 
-export default function TeacherForm() {
+type Props = {
+  mode?: "create" | "edit";
+  defaultValues?: Teacher;
+};
+
+export default function TeacherForm({ mode = "create", defaultValues }: Props) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [email, setEmail] = useState(defaultValues?.email ?? "");
+  const [name, setName] = useState(defaultValues?.name ?? "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const isEdit = mode === "edit";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,10 +35,14 @@ export default function TeacherForm() {
 
     setSubmitting(true);
 
-    const result = await createTeacher({
+    const input = {
       email: email.trim(),
       name: name.trim(),
-    });
+    };
+
+    const result = isEdit
+      ? await updateTeacher(defaultValues!.id, input)
+      : await createTeacher(input);
 
     if (!result.success) {
       setError(result.message ?? "エラーが発生しました");
@@ -88,7 +100,13 @@ export default function TeacherForm() {
           disabled={submitting}
           className="rounded-lg bg-teal-600 px-6 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
         >
-          {submitting ? "登録中..." : "登録する"}
+          {submitting
+            ? isEdit
+              ? "更新中..."
+              : "登録中..."
+            : isEdit
+              ? "更新する"
+              : "登録する"}
         </button>
         <Link
           href="/teacher/teachers"
