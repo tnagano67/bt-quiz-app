@@ -189,9 +189,9 @@ CREATE INDEX idx_quiz_records_subject_id ON quiz_records(subject_id);
 - 生徒クエリを `.range()` ページネーションで全件取得に修正
 - グレード分布チャートをパーセント表示に変更
 - 年・組フィルター追加（`StudentFilter` コンポーネント、URLパラメータ連動）
-- 最近の受験活動テーブルを「頑張っている生徒」「サボっている生徒」リストに置き換え
+- 最近の受験活動テーブルを「頑張っている生徒」「最近挑戦していない生徒」リストに置き換え
   - 頑張っている生徒: 連続合格日数 > 0、上位5名
-  - サボっている生徒: 本日未受験、最終受験日が古い順に5名
+  - 最近挑戦していない生徒: 本日未受験、最終受験日が古い順に5名
 - 各リストに年/組/番の表示とヘッダー行を追加
 
 ### Phase 11: テスト拡充・リファクタリング ✅
@@ -332,6 +332,20 @@ CREATE TABLE student_subject_progress (
 - **RLS ポリシー追加**: `teachers` テーブルに UPDATE ポリシーを追加（`EXISTS (SELECT 1 FROM teachers WHERE email = auth.jwt() ->> 'email')`）。RLS 有効テーブルで UPDATE ポリシーが未設定だと、エラーなしで 0 行更新されるサイレント失敗が発生する
 - **ユニットテスト追加**: `updateTeacher` のテスト6件（未認証・非教員・メール重複・正常更新・存在しない教員・DBエラー）
 - **テスト総数**: ユニット 188 → 194件（+6件）
+
+### Phase 17: UI/UX 全範囲改善 ✅
+
+- **フォント修正**: `globals.css` の `body` から `font-family: Arial, Helvetica, sans-serif` を削除（Geist フォント変数を上書きしていた）
+- **フォーカスリング統一**: `globals.css` で `input`/`select`/`textarea` にグローバルなフォーカスリングスタイル追加（teal-500 の `box-shadow` + `border-color`）
+- **削除確認ダイアログカスタム化**: `ConfirmDialog` コンポーネント新規作成（`window.confirm()`/`alert()` を置き換え）。`role="dialog"`・`aria-modal`・Escape/背景クリックで閉じる・フォーカス管理。5つの DeleteButton（`StudentDeleteButton`/`QuestionDeleteButton`/`SubjectDeleteButton`/`GradeDeleteButton`/`TeacherDeleteButton`）を移行。エラー表示もダイアログ内で実施
+- **教員ヘッダーのモバイルハンバーガーメニュー**: `TeacherHeader` にモバイル（`md` 未満）でハンバーガーアイコンボタン表示、クリックでナビリンク7項目をドロップダウン表示。外部クリック・Escape キーで閉じる。デスクトップ（`md` 以上）ではタブ表示を維持
+- **アクティブタブ下ボーダー**: `Header`（生徒）に `border-b-2 border-blue-600`、`TeacherHeader`（教員）に `border-b-2 border-teal-600` を追加して視認性向上
+- **ログアウトボタン改善**: 両ヘッダーで `px-3 py-1.5 rounded-lg hover:bg-gray-100` を追加してタッチターゲット拡大
+- **テーブル操作列タッチターゲット改善**: 4テーブル（`StudentTable`/`QuestionTable`/`GradeTable`/`SubjectTable`）の「編集」リンクに `rounded px-2 py-1 text-sm hover:bg-teal-50` 追加。DeleteButton も同様のスタイルに統一
+- **テーブル行ホバー改善**: 4テーブルの `hover:bg-gray-50` → `hover:bg-gray-100` に変更してコントラスト向上
+- **CSVインポートのスピナー追加**: 3コンポーネント（`CsvImport`/`StudentCsvImport`/`TeacherCsvImport`）の「インポート中...」テキストに `animate-spin` の SVG スピナーを追加
+- **ダッシュボード表現修正**: 「サボっている生徒」→「最近挑戦していない生徒」に変更（教育現場にふさわしい表現）
+- **既存 lint エラー修正**: `teacher/students/page.tsx` の `let` → `const` 修正
 
 ---
 

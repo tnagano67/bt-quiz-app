@@ -75,12 +75,13 @@ npm run test:e2e:headed  # ブラウザ表示付きで実行
 - **生徒側**: 青系（`blue-600` 等）、`max-w-3xl` コンテナ
 - **教員側**: ティール系（`teal-700` 等）、`max-w-5xl` コンテナ（テーブル用に広め）
 - 各ロールは独立した `layout.tsx` と専用ヘッダー（`Header.tsx` / `TeacherHeader.tsx`）を持つ
+- **ヘッダーナビゲーション**: アクティブタブに下ボーダー表示（生徒: `border-blue-600`、教員: `border-teal-600`）。`TeacherHeader` はモバイル（`md` 未満）でハンバーガーメニュー、デスクトップでタブ表示
 - **モバイルテーブル対応**: `StudentTable` は日付スコア列を `hidden lg:table-cell` でデスクトップのみ表示。`QuestionTable` は選択肢1〜4列を `hidden md:table-cell` でデスクトップのみ表示
 
 ### Server Component / Client Component の使い分け
 
 - **Server Component**: ホーム画面、履歴、教員一覧/詳細ページ、テーブル系コンポーネント（`StudentTable`、`QuestionTable`、`GradeTable`、`SubjectTable`）、表示系コンポーネント（`SubjectCard`、`QuizQuestion`、`QuizResult`、`HistoryItem`、`StatisticsCard`）
-- **Client Component** (`"use client"`): クイズページ、ヘッダー（`usePathname`）、`ScoreChart`/`GradeDistributionChart`/`PassRateTrendChart`（Chart.js、各ページから `next/dynamic` で遅延読み込み）、`StudentFilter`（URL パラメータ操作）、フォーム系（`QuestionForm`/`StudentForm`/`GradeForm`/`SubjectForm`/`TeacherForm`）、CSVインポート系（`CsvImport`/`StudentCsvImport`）、`Pagination`、ログイン画面、エクスポートページ
+- **Client Component** (`"use client"`): クイズページ、ヘッダー（`usePathname`）、`ScoreChart`/`GradeDistributionChart`/`PassRateTrendChart`（Chart.js、各ページから `next/dynamic` で遅延読み込み）、`StudentFilter`（URL パラメータ操作）、フォーム系（`QuestionForm`/`StudentForm`/`GradeForm`/`SubjectForm`/`TeacherForm`）、CSVインポート系（`CsvImport`/`StudentCsvImport`）、`Pagination`、`ConfirmDialog`（削除確認モーダル）、各 `*DeleteButton`（5種）、ログイン画面、エクスポートページ
 
 ### 主要な lib モジュール
 
@@ -158,6 +159,9 @@ E2Eテスト実行時は追加で以下が必要:
 - **Pagination**: `<nav aria-label="ページネーション">`、`aria-current="page"`、前へ/次へに `aria-label`
 - **コントラスト**: 低コントラストの `text-gray-300`/`text-gray-400`/`text-yellow-600` を修正済み
 - **キャンセルボタン**: ナビゲーション用途のため `<Link>` に統一（`<button>` ではなく）
+- **削除確認ダイアログ**: `ConfirmDialog` コンポーネント（`window.confirm()`/`alert()` を置き換え）。Escape/背景クリックで閉じる、`role="dialog"` + `aria-modal`
+- **フォーカスリング**: `globals.css` で `input`/`select`/`textarea` にグローバルなフォーカスリングスタイルを適用（teal-500 の `box-shadow`）
+- **タッチターゲット**: テーブル操作列の「編集」「削除」ボタンに `px-2 py-1` パディング + ホバー背景色。ログアウトボタンに `px-3 py-1.5 rounded-lg` + `hover:bg-gray-100`
 
 ### テストインフラ
 
